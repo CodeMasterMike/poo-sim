@@ -269,7 +269,7 @@ Prove the fun before building content. Target for a first playable:
 - [ ] **Meta-narrative:** any framing (a "world tour of toilets," a bucket list) or purely arcade?
 - [ ] **Push control feel:** hold-to-push (proposed) vs. rhythm-tap vs. drag-a-slider — needs prototyping to decide.
 - [ ] **Failure severity:** how punishing? Instant fail on detection, or a strike system?
-- [ ] **Multiplayer/social:** async leaderboards or ghost runs later, or single-player only?
+- [ ] **Multiplayer/social:** single-player at launch — but see §17 for the 1v1 potential the architecture is being kept open for.
 
 ---
 
@@ -282,3 +282,34 @@ Prove the fun before building content. Target for a first playable:
 5. **Meta & Extras** — Daily Sit, cosmetic unlocks, achievements, store listing prep.
 6. **Soft launch** — limited region, tune difficulty and pacing.
 7. **Launch.**
+
+---
+
+## 17. Future Direction — Multiplayer (post-launch; not in launch scope)
+
+Launch is single-player. But The Push is, underneath, a **race** — "first to fill Relief to 100%" is a 1v1 win condition with no contortion, and the 30–90s session length is ideal match pacing. We are **not** building multiplayer for launch. We *are* building so we don't foreclose it — the distinction below is between a mode we could later add and one we'd have to rebuild the core to support.
+
+### The two models being kept open
+
+- **Async ghost race (cheap, on-model).** Race a recorded run — a "ghost" replayed from a stored input/meter timeline. No servers, no matchmaking; fits the premium/no-server model (§12) cleanly. This is the likely first competitive hook if we ever want one.
+- **Real-time 1v1 (feasible, but a business decision).** Because each player drives their *own* gauge, competition is **indirect** — so sync is latency-tolerant: exchange Relief progress plus discrete events, never frame-perfect state. The netcode is the *easy* part. The cost is everything around it — matchmaking, relay servers, anti-cheat, live-ops — a **recurring server cost against no recurring revenue**, which directly tensions §12. Only take it on if the game earns it (and likely a monetization rethink with it).
+
+### Hazards as sabotage
+
+The [Hazard Catalog](poo-sim-hazard-catalog.md) is designed to double as a **1v1 attack deck**: land a clean stretch of Push and you *send* a hazard — a Knock, a Jolt, a Smell Cloud — to your rival's gauge. Fourteen solo annoyances become a combat system for near-free. Still bound by the Complexity Budget: **one decision at a time** — sabotage garnishes the race, it doesn't turn it into a management sim.
+
+### Fairness by construction
+
+Any competitive mode requires both players get the *identical* board — same Flow-Zone script and hazard sequence, from one **shared per-match seed**. Cheap if designed in from the start; a rewrite if bolted on.
+
+### Architectural guardrails — cheap now, a rewrite later
+
+To keep the door open **without building any multiplayer yet**, the vertical slice should already:
+
+1. **Keep the sim deterministic and seeded.** All hazard timing, Flow-Zone changes, and any randomness pull from a single per-match seed — never wall-clock time or global `randf()` in gameplay logic. This buys fair mirrored boards *and* reproducible ghost replays for free.
+2. **Fire hazards from an event stream, not hardcoded timers.** A scheduler consumes typed hazard events; an event may originate from the level, a recorded ghost, or an opponent's sabotage — the same code path resolves all three.
+3. **Separate simulation state from the UI.** The four meters, the needle, and Relief live in a plain data model the UI *reads* — never stored canonically inside Control nodes. That model is what you would snapshot and sync.
+4. **Funnel input through one intent layer,** so a push/reaction can be recorded (ghost) and, later, a remote player's intents slot in identically.
+5. **Make "a match" a small config object** (players, seed, level) so it can be one local player, one player + ghost, or two networked players without restructuring the flow.
+
+None of the above is multiplayer code. It is simply *not single-player-only* code — and that is the whole point of writing it down before the core is built.

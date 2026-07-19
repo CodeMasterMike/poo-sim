@@ -271,6 +271,12 @@ Overlap is where difficulty gets spicy — and where it gets *unfair* if you're 
 
 ---
 
+# Future reuse — hazards as 1v1 sabotage
+
+These entries are written for single-player, but the system is deliberately shaped to **double as a 1v1 attack deck** (see main spec §17). In a future competitive mode, resolving a clean stretch of Push could *send* a hazard to an opponent's gauge — the same event, just triggered remotely instead of by the level. What makes that reuse near-free is that every hazard is already a **self-contained, event-driven payload**: one trigger, one reaction, one meter. Keep new hazards on that shape — fired from an event, never wired to a hardcoded level timer — and the sabotage mode stays a code path we can add rather than a core we'd have to rebuild.
+
+---
+
 # Open questions
 
 - [ ] **Overlay vs. pause:** do hazards play *over* a still-running Push (max tension) or briefly pause it? Recommendation: overlay for everything except freeze-type hazards (The Knock).
