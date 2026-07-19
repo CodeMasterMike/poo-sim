@@ -1,0 +1,2 @@
+# Global singletons (autoloads): game state, audio manager, scene router, save/progression.
+# Register in project.godot [autoload] when built.
