@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Poo Sim — Seated Screen Mockup</title>
+<style>
+  :root{
+    --ink:#191426;          /* comic outline / darkest */
+    --ink-2:#2b2340;
+    --porta:#1FA6A6;        /* porta-potty plastic teal */
+    --porta-dark:#127070;
+    --porta-light:#4FD6D0;
+    --tile:#E7E0CE;         /* grimy porcelain panel */
+    --tile-line:#c9c0a6;
+    --safe:#34C759;         /* green: flow / good */
+    --caution:#FFB020;      /* amber */
+    --danger:#FF3B30;       /* red / alarm */
+    --hazard:#FF6A00;       /* hazard-prompt orange */
+    --gold:#FFC93C;
+    --paper:#f6f3ea;
+    --stage:#211d2b;        /* studio backdrop */
+    --font-display: 900 1em/1 system-ui, "Arial Black", "Helvetica Neue", sans-serif;
+    --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--font-body);
+    background:
+      radial-gradient(120% 80% at 50% -10%, #2e2740 0%, var(--stage) 60%);
+    color:var(--paper);
+    min-height:100%;
+    display:flex;flex-wrap:wrap;gap:34px;
+    align-items:flex-start;justify-content:center;
+    padding:34px 20px 60px;
+  }
+
+  /* ---------- Phone frame ---------- */
+  .phone{
+    width:min(92vw,376px);
+    background:linear-gradient(160deg,#0e0b17,#241d33);
+    border-radius:44px;
+    padding:12px;
+    box-shadow:0 30px 70px rgba(0,0,0,.55), inset 0 0 0 2px #000;
+    position:relative;flex:0 0 auto;
+  }
+  .notch{
+    position:absolute;top:20px;left:50%;transform:translateX(-50%);
+    width:120px;height:26px;background:#000;border-radius:0 0 16px 16px;z-index:40;
+  }
+  .screen{
+    position:relative;width:100%;aspect-ratio:360/748;
+    border-radius:34px;overflow:hidden;
+    display:flex;flex-direction:column;
+    background:var(--porta);
+    isolation:isolate;
+  }
+
+  /* ---------- HUD ---------- */
+  .hud{
+    height:46px;flex:0 0 auto;display:flex;align-items:center;gap:8px;
+    padding:0 12px;padding-top:6px;
+    background:linear-gradient(var(--ink),rgba(25,20,38,.72));
+    z-index:20;
+  }
+  .icon-btn{
+    width:30px;height:30px;border:none;border-radius:9px;cursor:pointer;
+    background:rgba(255,255,255,.12);color:#fff;font-size:15px;
+    display:grid;place-items:center;font-weight:800;
+  }
+  .icon-btn:focus-visible{outline:3px solid var(--porta-light);outline-offset:2px}
+  .hud-title{flex:1;text-align:center;line-height:1.05}
+  .hud-title b{font:var(--font-display);font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;display:block}
+  .hud-title span{font-size:9.5px;opacity:.7;letter-spacing:.14em;text-transform:uppercase}
+
+  /* ---------- Composure master timer ---------- */
+  .composure{
+    height:30px;flex:0 0 auto;padding:5px 12px;background:rgba(25,20,38,.55);
+    display:flex;align-items:center;gap:8px;z-index:20;
+  }
+  .composure .lbl{font:var(--font-display);font-size:9px;letter-spacing:.14em;color:#fff;opacity:.85}
+  .track{flex:1;height:12px;border-radius:20px;background:rgba(0,0,0,.35);overflow:hidden;box-shadow:inset 0 0 0 2px rgba(0,0,0,.3);position:relative}
+  .track > i{display:block;height:100%;border-radius:20px;transition:width .12s linear}
+  #composureFill{width:64%;background:linear-gradient(90deg,var(--safe),#a6e34d)}
+  /* during prep the bar is visibly being spent */
+  .screen[data-phase="prep"] .composure{box-shadow:inset 0 0 0 2px rgba(255,106,0,.5)}
+  .screen[data-phase="prep"] .composure .lbl{color:var(--hazard);opacity:1}
+  .costtag{
+    position:absolute;right:6px;top:50%;transform:translateY(-50%);
+    font:var(--font-display);font-size:8px;letter-spacing:.08em;color:var(--hazard);
+    opacity:0;transition:opacity .2s;
+  }
+  .screen[data-phase="prep"] .costtag{opacity:1}
+
+  /* ---------- Scene ---------- */
+  .scene{position:relative;flex:1 1 auto;overflow:hidden}
+  .wall{
+    position:absolute;inset:0;
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.10),rgba(0,0,0,.16)),
+      repeating-linear-gradient(90deg,var(--porta) 0 46px,var(--porta-dark) 46px 48px);
+  }
+  .vent{position:absolute;top:16px;left:50%;transform:translateX(-50%);width:52px;height:22px;border-radius:5px;
+    background:repeating-linear-gradient(0deg,#0c4f4f 0 3px,#1a6a6a 3px 6px);opacity:.7;box-shadow:0 2px 0 rgba(0,0,0,.25)}
+  .floor{position:absolute;left:0;right:0;bottom:0;height:26%;
+    background:linear-gradient(180deg,#2a6b6b,#0c3d3d);border-top:3px solid rgba(0,0,0,.3)}
+  /* toilet + character (placeholder cartoon shapes) */
+  .toilet{position:absolute;left:50%;bottom:6%;transform:translateX(-50%);width:120px;height:96px}
+  .tank{position:absolute;bottom:52px;left:50%;transform:translateX(-50%);width:96px;height:44px;background:var(--tile);border:3px solid var(--ink);border-radius:10px}
+  .bowl{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:118px;height:60px;background:var(--tile);border:3px solid var(--ink);border-radius:50%/40%}
+  .char{position:absolute;left:50%;bottom:22%;transform:translateX(-50%);z-index:3;width:104px;text-align:center;transition:transform .4s}
+  .head{width:52px;height:52px;border-radius:50%;background:#F2C79B;border:3px solid var(--ink);margin:0 auto;position:relative}
+  .head::before,.head::after{content:"";position:absolute;top:20px;width:6px;height:6px;background:var(--ink);border-radius:50%}
+  .head::before{left:15px}.head::after{right:15px}
+  .mouth{position:absolute;bottom:11px;left:50%;transform:translateX(-50%);width:14px;height:8px;border:3px solid var(--ink);border-top:none;border-radius:0 0 12px 12px}
+  .body{width:74px;height:40px;background:#6C5CE7;border:3px solid var(--ink);border-radius:16px 16px 8px 8px;margin:-6px auto 0}
+  .sweat{position:absolute;top:6px;right:16px;width:10px;height:14px;background:var(--porta-light);border:2px solid var(--ink);border-radius:0 60% 60% 60%;transform:rotate(45deg);opacity:0}
+  .screen[data-tense="1"] .sweat{opacity:1;animation:drip 1.4s ease-in-out infinite}
+  @keyframes drip{0%,100%{transform:rotate(45deg) translateY(0)}50%{transform:rotate(45deg) translateY(4px)}}
+
+  /* Prep-highlightable props */
+  .prop{position:absolute;font-size:24px;z-index:4;filter:drop-shadow(0 2px 0 rgba(0,0,0,.35));
+    padding:5px;border-radius:12px;transition:.25s}
+  .prop.roll{left:14px;top:34%}
+  .prop.latch{right:16px;top:27%;font-size:20px}
+  .prop.seat{left:20px;bottom:32%;font-size:20px}
+  .screen[data-phase="prep"] .prop{background:rgba(255,201,60,.16);box-shadow:0 0 0 3px rgba(255,201,60,.75), 0 0 18px rgba(255,201,60,.5);
+    animation:glint 1.8s ease-in-out infinite}
+  @keyframes glint{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}
+  .prop.picked{background:rgba(52,199,89,.25)!important;box-shadow:0 0 0 3px var(--safe)!important;animation:none!important}
+
+  /* Relief meter — vertical, the goal */
+  .relief{position:absolute;top:12px;right:10px;bottom:12px;width:44px;z-index:6;display:flex;flex-direction:column;align-items:center;gap:6px}
+  .relief .cap{font-size:16px;filter:drop-shadow(0 1px 0 rgba(0,0,0,.4))}
+  .relief .rtrack{flex:1;width:26px;border-radius:16px;background:rgba(0,0,0,.4);position:relative;overflow:hidden;box-shadow:inset 0 0 0 3px var(--ink)}
+  #reliefFill{position:absolute;left:0;right:0;bottom:0;height:38%;background:linear-gradient(0deg,var(--safe),#b6f36a);border-radius:14px 14px 0 0;transition:height .12s linear}
+  .relief .rlbl{font:var(--font-display);font-size:8px;letter-spacing:.12em;writing-mode:vertical-rl;transform:rotate(180deg);opacity:.9}
+  .goal-line{position:absolute;left:-3px;right:-3px;top:4px;border-top:2px dashed rgba(255,255,255,.7)}
+
+  /* Secondary meters — Discretion + Cleanliness */
+  .secondary{position:absolute;top:10px;left:10px;z-index:6;display:flex;flex-direction:column;gap:6px}
+  .pill{display:flex;align-items:center;gap:6px;background:rgba(25,20,38,.62);padding:4px 8px 4px 5px;border-radius:20px;box-shadow:inset 0 0 0 2px rgba(0,0,0,.3)}
+  .pill .ic{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;background:rgba(255,255,255,.15)}
+  .pill .p{width:52px;height:8px;border-radius:20px;background:rgba(0,0,0,.4);overflow:hidden}
+  .pill .p i{display:block;height:100%;border-radius:20px;transition:width .5s}
+  #discFill{width:82%;background:linear-gradient(90deg,var(--safe),#a6e34d)}
+  #cleanFill{width:70%;background:linear-gradient(90deg,var(--safe),#a6e34d)}
+  .pill.flash{animation:pillflash .6s ease-out 2}
+  @keyframes pillflash{0%,100%{box-shadow:inset 0 0 0 2px rgba(0,0,0,.3)}50%{box-shadow:inset 0 0 0 2px var(--hazard),0 0 14px var(--hazard)}}
+
+  /* Hazard scene visuals (toggled) */
+  .haz{position:absolute;inset:0;pointer-events:none;z-index:5;display:none}
+  .screen[data-phase="sit"][data-state="knock"] .haz.knock{display:block}
+  .screen[data-phase="sit"][data-state="smell"] .haz.smell{display:block}
+  .screen[data-phase="sit"][data-state="clog"]  .haz.clog{display:block}
+  .door-shadow{position:absolute;left:8px;top:24%;width:70px;height:150px;background:linear-gradient(90deg,rgba(0,0,0,.5),transparent);border-radius:10px}
+  .knuckles{position:absolute;left:60px;top:36%;font-size:26px;animation:knock 0.5s ease-in-out infinite}
+  @keyframes knock{0%,100%{transform:translateX(0)}50%{transform:translateX(-8px)}}
+  .cloud{position:absolute;left:52%;bottom:34%;font-size:30px;filter:hue-rotate(60deg);animation:rise 2s ease-in infinite}
+  @keyframes rise{0%{transform:translate(0,10px) scale(.8);opacity:0}30%{opacity:.9}100%{transform:translate(20px,-70px) scale(1.2);opacity:0}}
+  .splash{position:absolute;left:50%;bottom:8%;transform:translateX(-50%);font-size:30px;animation:pop .5s ease-out infinite}
+  @keyframes pop{0%{transform:translateX(-50%) scale(.7);opacity:.4}50%{opacity:1}100%{transform:translateX(-50%) scale(1.3);opacity:0}}
+
+  /* Getaway reveal */
+  .exit{position:absolute;inset:0;z-index:7;display:none;pointer-events:none}
+  .screen[data-phase="getaway"] .exit{display:block}
+  .screen[data-phase="getaway"] .char{transform:translateX(-50%) translateY(-14px)}
+  .doorway{position:absolute;left:0;top:12%;bottom:0;width:44%;
+    background:linear-gradient(90deg,rgba(0,0,0,.72),rgba(0,0,0,.25));
+    border-right:4px solid var(--ink);border-radius:0 14px 0 0;animation:swing .5s ease-out}
+  @keyframes swing{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+  .crowd{position:absolute;left:6px;top:30%;display:flex;flex-direction:column;gap:6px;font-size:26px}
+  .bubble{position:absolute;left:52px;top:26%;max-width:150px;background:var(--paper);color:var(--ink);
+    border:3px solid var(--ink);border-radius:14px;padding:7px 10px;font-weight:800;font-size:11.5px;line-height:1.25;
+    box-shadow:0 4px 0 rgba(0,0,0,.35)}
+  .bubble::after{content:"";position:absolute;left:-11px;top:16px;border:7px solid transparent;border-right-color:var(--ink)}
+
+  /* ---------- Prompt band ---------- */
+  .prompt{
+    height:62px;flex:0 0 auto;z-index:20;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    padding:0 14px;background:var(--ink);
+    border-top:3px solid rgba(0,0,0,.4);
+    text-align:center;
+  }
+  .prompt .big{font:var(--font-display);font-size:15px;letter-spacing:.06em;text-transform:uppercase;line-height:1.05}
+  .prompt .sub{font-size:10px;opacity:.72;letter-spacing:.03em}
+  .prompt.calm{background:linear-gradient(var(--ink),var(--ink-2))}
+  .prompt.calm .big{font-size:11px;letter-spacing:.18em;opacity:.6;font-weight:800}
+  .prompt.alert{background:linear-gradient(90deg,#3a1400,#5a2100);box-shadow:inset 0 0 0 2px var(--hazard)}
+  .prompt.alert .big{color:var(--hazard)}
+  .prompt.gold{background:linear-gradient(90deg,#3a2e00,#5a4700);box-shadow:inset 0 0 0 2px var(--gold,#FFC93C)}
+  .prompt.gold .big{color:#FFC93C}
+  .prompt .arrow{font-size:22px;color:var(--hazard);animation:slide .8s ease-in-out infinite}
+  @keyframes slide{0%,100%{transform:translateX(-4px)}50%{transform:translateX(6px)}}
+
+  /* ---------- Control area (phase-swapped) ---------- */
+  .control{
+    height:236px;flex:0 0 auto;position:relative;z-index:15;
+    background:
+      radial-gradient(120% 120% at 30% 0%, #37305a 0%, #211a38 60%),
+      var(--ink);
+    padding:14px 14px 18px;
+    touch-action:none;user-select:none;
+  }
+  .ctl{display:none;height:100%;gap:12px}
+  .screen[data-phase="sit"] .ctl.sit{display:flex}
+  .screen[data-phase="prep"] .ctl.prep{display:flex}
+  .screen[data-phase="getaway"] .ctl.getaway{display:flex}
+
+  /* -- Sit: force gauge -- */
+  .gauge{width:74px;flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:6px}
+  .gauge .glbl{font:var(--font-display);font-size:8px;letter-spacing:.14em;opacity:.85}
+  .gtrack{position:relative;flex:1;width:44px;border-radius:24px;background:#0d0a18;
+    box-shadow:inset 0 0 0 3px #000, inset 0 8px 20px rgba(0,0,0,.6);overflow:hidden}
+  .zone{position:absolute;left:0;right:0}
+  .zone.dead{bottom:0;height:26%;background:repeating-linear-gradient(45deg,#2a2440 0 6px,#231e39 6px 12px)}
+  .zone.flow{bottom:38%;height:30%;background:linear-gradient(0deg,rgba(52,199,89,.25),rgba(52,199,89,.5));box-shadow:inset 0 0 14px rgba(52,199,89,.7);border-top:2px solid var(--safe);border-bottom:2px solid var(--safe)}
+  .zone.flow::after{content:"FLOW";position:absolute;inset:0;display:grid;place-items:center;font:var(--font-display);font-size:8px;letter-spacing:.2em;color:#dfffe6}
+  .zone.red{top:0;height:18%;background:linear-gradient(180deg,rgba(255,59,48,.55),rgba(255,59,48,.15));border-bottom:2px solid var(--danger)}
+  .needle{position:absolute;left:-4px;right:-4px;height:12px;bottom:8%;
+    background:var(--paper);border:3px solid var(--ink);border-radius:6px;
+    box-shadow:0 0 12px rgba(255,255,255,.5);transition:bottom .06s linear;z-index:3}
+  .needle::after{content:"";position:absolute;right:-14px;top:50%;transform:translateY(-50%);
+    border:6px solid transparent;border-right-color:var(--paper)}
+  /* Hold pad */
+  .pad{flex:1;border-radius:22px;position:relative;cursor:pointer;border:none;color:#fff;
+    background:linear-gradient(180deg,#5a4bd6,#4636b0);
+    box-shadow:0 8px 0 #2c2080, inset 0 2px 0 rgba(255,255,255,.3);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+    transition:transform .05s, box-shadow .05s;
+  }
+  .pad:focus-visible{outline:3px solid var(--porta-light);outline-offset:3px}
+  .pad .ptxt{font:var(--font-display);font-size:19px;letter-spacing:.06em;text-transform:uppercase}
+  .pad .phint{font-size:10px;opacity:.8;letter-spacing:.04em}
+  .pad .ring{width:56px;height:56px;border-radius:50%;border:4px solid rgba(255,255,255,.55);display:grid;place-items:center;font-size:24px}
+  .ctl.sit[data-holding="1"] .pad{transform:translateY(6px);box-shadow:0 2px 0 #2c2080, inset 0 2px 10px rgba(0,0,0,.4)}
+
+  /* -- Prep: cards + JUST GO -- */
+  .ctl.prep{flex-direction:column}
+  .prepcards{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;flex:1}
+  .pcard{position:relative;border:3px solid rgba(255,255,255,.18);background:rgba(255,255,255,.07);
+    border-radius:16px;color:#fff;cursor:pointer;padding:6px 4px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:.14s}
+  .pcard .pi{font-size:23px}
+  .pcard .pn{font:var(--font-display);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;text-align:center;line-height:1.2}
+  .pcard:hover{border-color:var(--porta-light)}
+  .pcard:focus-visible{outline:3px solid var(--porta-light);outline-offset:2px}
+  .pcard[aria-pressed="true"]{border-color:var(--safe);background:rgba(52,199,89,.2)}
+  .pcard[aria-pressed="true"]::after{content:"✓";position:absolute;top:4px;right:7px;font:var(--font-display);font-size:13px;color:var(--safe)}
+  .pcard[disabled]{opacity:.3;cursor:default}
+  .justgo{border:none;border-radius:18px;cursor:pointer;color:#fff;height:64px;flex:0 0 auto;
+    background:linear-gradient(180deg,#5a4bd6,#4636b0);box-shadow:0 7px 0 #2c2080;
+    font:var(--font-display);font-size:18px;letter-spacing:.08em;text-transform:uppercase;
+    display:flex;align-items:center;justify-content:center;gap:10px}
+  .justgo small{font-size:9.5px;font-weight:600;letter-spacing:.04em;opacity:.8;text-transform:none}
+  .justgo:active{transform:translateY(4px);box-shadow:0 3px 0 #2c2080}
+  .justgo:focus-visible{outline:3px solid var(--porta-light);outline-offset:3px}
+
+  /* -- Getaway: wash or bolt -- */
+  .ctl.getaway{flex-direction:column;gap:10px}
+  .gohint{text-align:center;font-size:10.5px;opacity:.7;letter-spacing:.03em;flex:0 0 auto}
+  .gochoice{display:flex;gap:10px;flex:1}
+  .gbig{flex:1;border:none;border-radius:20px;cursor:pointer;color:#fff;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:8px}
+  .gbig .gi{font-size:30px}
+  .gbig .gt{font:var(--font-display);font-size:17px;letter-spacing:.06em;text-transform:uppercase}
+  .gbig .gs{font-size:9.5px;opacity:.9;text-align:center;line-height:1.25}
+  .gbig.wash{background:linear-gradient(180deg,#31c25e,#1e9c47);box-shadow:0 7px 0 #14682f}
+  .gbig.bolt{background:linear-gradient(180deg,#ff8a3d,#e0621a);box-shadow:0 7px 0 #a34500}
+  .gbig:active{transform:translateY(4px);box-shadow:0 3px 0 rgba(0,0,0,.5)}
+  .gbig:focus-visible{outline:3px solid var(--paper);outline-offset:3px}
+
+  /* ---------- Annotations overlay ---------- */
+  .annot{position:absolute;inset:0;z-index:30;pointer-events:none;display:none}
+  .screen[data-annot="1"] .annot{display:block}
+  .aband{position:absolute;left:0;right:0;border-top:1.5px dashed rgba(255,255,255,.6);}
+  .atag{position:absolute;left:8px;background:var(--hazard);color:#fff;font:var(--font-display);
+    font-size:8px;letter-spacing:.1em;padding:3px 7px;border-radius:0 8px 8px 0;text-transform:uppercase}
+  .thumb-arc{position:absolute;right:-40px;bottom:-40px;width:300px;height:300px;border-radius:50%;
+    border:2px dashed rgba(255,106,0,.8);background:radial-gradient(circle,rgba(255,106,0,.12),transparent 70%)}
+  .thumb-tag{position:absolute;right:18px;bottom:120px;color:var(--hazard);font:var(--font-display);font-size:8.5px;letter-spacing:.1em;text-align:right}
+
+  /* ---------- Side control panel ---------- */
+  .panel{width:min(92vw,320px);flex:0 0 auto;color:var(--paper)}
+  .panel h1{font:var(--font-display);font-size:22px;letter-spacing:.02em;text-transform:uppercase;margin-bottom:4px}
+  .panel .tagline{font-size:13px;opacity:.7;margin-bottom:20px;line-height:1.4}
+  .panel h2{font-size:11px;letter-spacing:.18em;text-transform:uppercase;opacity:.6;margin:18px 0 8px}
+  .btnrow{display:flex;flex-wrap:wrap;gap:8px}
+  .sbtn{
+    border:2px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#fff;
+    padding:9px 12px;border-radius:12px;font-size:12.5px;font-weight:700;cursor:pointer;
+    letter-spacing:.02em;transition:.12s;
+  }
+  .sbtn:hover{border-color:var(--porta-light)}
+  .sbtn:focus-visible{outline:3px solid var(--porta-light);outline-offset:2px}
+  .sbtn[aria-pressed="true"]{background:var(--hazard);border-color:var(--hazard);color:#fff;box-shadow:0 4px 16px rgba(255,106,0,.4)}
+  .sbtn[disabled]{opacity:.35;cursor:default}
+  .note{font-size:11.5px;opacity:.6;line-height:1.5;margin-top:8px}
+  .legend{margin-top:22px;font-size:12px;line-height:1.7;opacity:.85}
+  .legend b{color:var(--porta-light)}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;vertical-align:middle;border:1px solid rgba(0,0,0,.4)}
+  .foot{margin-top:22px;font-size:11px;opacity:.5;line-height:1.5}
+
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important}
+  }
+</style>
+</head>
+<body>
+
+  <!-- ============ PHONE ============ -->
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="screen" id="screen" data-phase="sit" data-state="calm" data-tense="0" data-annot="0">
+
+      <!-- HUD -->
+      <div class="hud">
+        <button class="icon-btn" aria-label="Pause">II</button>
+        <div class="hud-title"><b>Porta-Potty</b><span id="hudSub">Level 1-3 · ★ target 3</span></div>
+        <button class="icon-btn" aria-label="Mute">♪</button>
+      </div>
+
+      <!-- Composure master timer -->
+      <div class="composure">
+        <span class="lbl">COMPOSURE</span>
+        <div class="track"><i id="composureFill"></i><span class="costtag" id="costTag">spending…</span></div>
+      </div>
+
+      <!-- Scene -->
+      <div class="scene">
+        <div class="wall"></div>
+        <div class="vent"></div>
+        <div class="floor"></div>
+
+        <div class="toilet"><div class="tank"></div><div class="bowl"></div></div>
+        <div class="char">
+          <div class="head"><div class="mouth"></div></div>
+          <div class="body"></div>
+          <div class="sweat"></div>
+        </div>
+
+        <!-- Prep-highlightable props -->
+        <div class="prop roll"  id="propPaper">🧻</div>
+        <div class="prop latch" id="propLatch">🔒</div>
+        <div class="prop seat"  id="propSeat">🧽</div>
+
+        <!-- Relief (goal) -->
+        <div class="relief">
+          <div class="cap">💩</div>
+          <div class="rtrack"><div class="goal-line"></div><div id="reliefFill"></div></div>
+          <div class="rlbl">RELIEF</div>
+        </div>
+
+        <!-- Secondary meters -->
+        <div class="secondary">
+          <div class="pill" id="pillDisc"><span class="ic">🤫</span><span class="p"><i id="discFill"></i></span></div>
+          <div class="pill" id="pillClean"><span class="ic">✨</span><span class="p"><i id="cleanFill"></i></span></div>
+        </div>
+
+        <!-- Hazard visuals -->
+        <div class="haz knock"><div class="door-shadow"></div><div class="knuckles">✊</div></div>
+        <div class="haz smell"><div class="cloud">💨</div></div>
+        <div class="haz clog"><div class="splash">💦</div></div>
+
+        <!-- Getaway reveal -->
+        <div class="exit">
+          <div class="doorway"></div>
+          <div class="crowd" id="crowd">🧍</div>
+          <div class="bubble" id="exitBubble">Nobody even looks up.</div>
+        </div>
+
+        <!-- Annotation overlay -->
+        <div class="annot">
+          <div class="aband" style="top:46px"><span class="atag" style="top:-6px">Composure · master clock</span></div>
+          <div class="aband" style="top:76px"><span class="atag" style="top:-6px">Scene · art + hazards</span></div>
+          <div class="thumb-arc"></div>
+          <div class="thumb-tag">one-thumb<br>reach zone</div>
+        </div>
+      </div>
+
+      <!-- Prompt band -->
+      <div class="prompt calm" id="prompt">
+        <div><div class="big" id="promptBig">Hold to push · react to hazards</div></div>
+      </div>
+
+      <!-- Control area — swaps by phase -->
+      <div class="control" id="control">
+
+        <!-- SIT -->
+        <div class="ctl sit" id="ctlSit" data-holding="0">
+          <div class="gauge">
+            <div class="glbl">FORCE</div>
+            <div class="gtrack">
+              <div class="zone dead"></div>
+              <div class="zone flow"></div>
+              <div class="zone red"></div>
+              <div class="needle" id="needle"></div>
+            </div>
+          </div>
+          <button class="pad" id="pad" aria-label="Hold to push">
+            <div class="ring">💪</div>
+            <div class="ptxt" id="padTxt">HOLD</div>
+            <div class="phint" id="padHint">to push</div>
+          </button>
+        </div>
+
+        <!-- PREP -->
+        <div class="ctl prep" id="ctlPrep">
+          <div class="prepcards" id="prepCards">
+            <button class="pcard" data-p="paper" aria-pressed="false">
+              <span class="pi">🧻</span><span class="pn">Check<br>paper</span>
+            </button>
+            <button class="pcard" data-p="latch" aria-pressed="false">
+              <span class="pi">🔒</span><span class="pn">Check<br>lock</span>
+            </button>
+            <button class="pcard" data-p="seat" aria-pressed="false">
+              <span class="pi">🧽</span><span class="pn">Clean<br>seat</span>
+            </button>
+          </div>
+          <button class="justgo" id="justGo">JUST GO <small>skip · keep the clock</small></button>
+        </div>
+
+        <!-- GETAWAY -->
+        <div class="ctl getaway" id="ctlGetaway">
+          <div class="gohint">One choice. Discretion comes due.</div>
+          <div class="gochoice">
+            <button class="gbig wash" id="btnWash">
+              <span class="gi">🚿</span><span class="gt">Wash</span>
+              <span class="gs">Costs seconds<br>Protects your rating</span>
+            </button>
+            <button class="gbig bolt" id="btnBolt">
+              <span class="gi">🏃</span><span class="gt">Bolt</span>
+              <span class="gs">Saves time<br>You get judged</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ CONTROL PANEL ============ -->
+  <div class="panel">
+    <h1>Seated Screen</h1>
+    <div class="tagline">The core gameplay screen for Poo Sim, across all three phases. The scene and meters never move — only the control area below the prompt band swaps.</div>
+
+    <h2>Phase</h2>
+    <div class="btnrow" id="phases">
+      <button class="sbtn" data-ph="prep" aria-pressed="false">① Prep</button>
+      <button class="sbtn" data-ph="sit" aria-pressed="true">② The Sit</button>
+      <button class="sbtn" data-ph="getaway" aria-pressed="false">③ Getaway</button>
+    </div>
+    <div class="note" id="phaseNote">Hold the pad to push. The needle rises; keep it in the green Flow Zone.</div>
+
+    <h2>Hazard state <span style="opacity:.5;font-size:9px">(sit only)</span></h2>
+    <div class="btnrow" id="states">
+      <button class="sbtn" data-s="calm" aria-pressed="true">Calm</button>
+      <button class="sbtn" data-s="knock" aria-pressed="false">The Knock</button>
+      <button class="sbtn" data-s="smell" aria-pressed="false">Smell Cloud</button>
+      <button class="sbtn" data-s="clog" aria-pressed="false">Splashback</button>
+    </div>
+
+    <h2>Getaway reveal <span style="opacity:.5;font-size:9px">(by final Discretion)</span></h2>
+    <div class="btnrow" id="tiers">
+      <button class="sbtn" data-t="high" aria-pressed="true">Undetected</button>
+      <button class="sbtn" data-t="mid" aria-pressed="false">Suspected</button>
+      <button class="sbtn" data-t="low" aria-pressed="false">Caught</button>
+    </div>
+
+    <h2>View</h2>
+    <div class="btnrow">
+      <button class="sbtn" id="annotBtn" aria-pressed="false">Show zone labels</button>
+      <button class="sbtn" id="resetBtn">Reset run</button>
+    </div>
+
+    <div class="legend">
+      <div><span class="swatch" style="background:#34C759"></span><b>Green</b> — safe / in the Flow Zone</div>
+      <div><span class="swatch" style="background:#FFB020"></span><b>Amber</b> — caution, drifting</div>
+      <div><span class="swatch" style="background:#FF3B30"></span><b>Red</b> — danger: noise, splash, fail</div>
+      <div><span class="swatch" style="background:#FF6A00"></span><b>Orange</b> — a hazard needs a reaction</div>
+    </div>
+
+    <div class="foot">Placeholder art — simple shapes stand in for the final cartoon. Environment shown: Festival Porta-Potty (swappable). Layout, meter placement, the phase swap, and the thumb zone are the real deliverable.</div>
+  </div>
+
+<script>
+(function(){
+  var screen  = document.getElementById('screen');
+  var ctlSit  = document.getElementById('ctlSit');
+  var pad     = document.getElementById('pad');
+  var needle  = document.getElementById('needle');
+  var relief  = document.getElementById('reliefFill');
+  var padTxt  = document.getElementById('padTxt');
+  var padHint = document.getElementById('padHint');
+  var promptEl= document.getElementById('prompt');
+  var promptBig=document.getElementById('promptBig');
+  var compFill= document.getElementById('composureFill');
+  var costTag = document.getElementById('costTag');
+  var phaseNote=document.getElementById('phaseNote');
+  var discFill= document.getElementById('discFill');
+
+  var force = 8;            // 0..100
+  var reliefVal = 38;       // 0..100
+  var holding = false;
+  var phase = 'sit';
+  var composure = 64;       // 0..100
+  var picks = [];           // prep selections
+  var tier = 'high';
+  var PICK_COST = 7;        // composure cost per prep card
+  var PREP_DRAIN = 1.4;     // composure drained per second while prepping
+
+  // ---------- hazard states (sit) ----------
+  var STATES = {
+    calm:  {cls:'calm',  big:'Hold to push · react to hazards', tense:'0'},
+    knock: {cls:'alert', big:'✋ Hold still — don\u2019t make a sound', tense:'1', pad:['RELEASE','stay quiet']},
+    smell: {cls:'alert', big:'Swipe to waft it away  →', tense:'1'},
+    clog:  {cls:'alert', big:'⚠ Ease off — or mash to clear', tense:'1'}
+  };
+
+  function setState(s){
+    var cfg = STATES[s] || STATES.calm;
+    screen.setAttribute('data-state', s);
+    screen.setAttribute('data-tense', cfg.tense);
+    promptEl.className = 'prompt ' + cfg.cls;
+    promptBig.textContent = cfg.big;
+    if (cfg.pad){ padTxt.textContent = cfg.pad[0]; padHint.textContent = cfg.pad[1]; }
+    else { padTxt.textContent = 'HOLD'; padHint.textContent = 'to push'; }
+    document.querySelectorAll('#states .sbtn').forEach(function(b){
+      b.setAttribute('aria-pressed', b.dataset.s === s ? 'true':'false');
+    });
+  }
+
+  // ---------- getaway reveal tiers ----------
+  var TIERS = {
+    high:{crowd:'🧍', text:'Nobody even looks up.'},
+    mid: {crowd:'🧍🧍', text:'A cough. A glance. Somebody knows.'},
+    low: {crowd:'🧍🧍🧍', text:'Slow clap. Someone is filming.'}
+  };
+  function setTier(t){
+    tier = t;
+    document.getElementById('crowd').textContent = TIERS[t].crowd;
+    document.getElementById('exitBubble').textContent = TIERS[t].text;
+    document.querySelectorAll('#tiers .sbtn').forEach(function(b){
+      b.setAttribute('aria-pressed', b.dataset.t === t ? 'true':'false');
+    });
+  }
+
+  // ---------- phase switching ----------
+  var NOTES = {
+    prep:'Pick up to 2 — the Composure bar drains the whole time you deliberate. That drain IS the cost. JUST GO skips it and keeps your clock.',
+    sit:'Hold the pad to push. The needle rises; keep it in the green Flow Zone.',
+    getaway:'The room reacts to your final Discretion, then one input: wash (costs seconds, protects the rating) or bolt (saves time, you get judged).'
+  };
+
+  function setPhase(p){
+    phase = p;
+    screen.setAttribute('data-phase', p);
+    phaseNote.textContent = NOTES[p];
+    document.querySelectorAll('#phases .sbtn').forEach(function(b){
+      b.setAttribute('aria-pressed', b.dataset.ph === p ? 'true':'false');
+    });
+    document.querySelectorAll('#states .sbtn').forEach(function(b){ b.disabled = (p!=='sit'); });
+    document.querySelectorAll('#tiers .sbtn').forEach(function(b){ b.disabled = (p!=='getaway'); });
+
+    if (p === 'prep'){
+      screen.setAttribute('data-tense','0');
+      promptEl.className = 'prompt calm';
+      promptBig.textContent = 'Read the room · pick up to 2';
+      document.getElementById('hudSub').textContent = 'Level 1-3 · Prep';
+    } else if (p === 'sit'){
+      setState(screen.getAttribute('data-state') || 'calm');
+      document.getElementById('hudSub').textContent = 'Level 1-3 · ★ target 3';
+    } else {
+      screen.setAttribute('data-tense','0');
+      promptEl.className = 'prompt gold';
+      promptBig.textContent = 'Discretion comes due';
+      document.getElementById('hudSub').textContent = 'Level 1-3 · The Getaway';
+      setTier(tier);
+    }
+  }
+
+  document.getElementById('phases').addEventListener('click', function(e){
+    var b = e.target.closest('.sbtn'); if(!b) return; setPhase(b.dataset.ph);
+  });
+  document.getElementById('states').addEventListener('click', function(e){
+    var b = e.target.closest('.sbtn'); if(!b || b.disabled) return; setState(b.dataset.s);
+  });
+  document.getElementById('tiers').addEventListener('click', function(e){
+    var b = e.target.closest('.sbtn'); if(!b || b.disabled) return; setTier(b.dataset.t);
+  });
+
+  // ---------- prep cards ----------
+  var propFor = {paper:'propPaper', latch:'propLatch', seat:'propSeat'};
+  document.getElementById('prepCards').addEventListener('click', function(e){
+    var b = e.target.closest('.pcard'); if(!b || b.disabled) return;
+    var key = b.dataset.p;
+    var on  = b.getAttribute('aria-pressed') === 'true';
+    if (on){
+      picks = picks.filter(function(x){return x!==key;});
+      b.setAttribute('aria-pressed','false');
+      document.getElementById(propFor[key]).classList.remove('picked');
+      composure = Math.min(100, composure + PICK_COST);
+    } else {
+      if (picks.length >= 2) return;
+      picks.push(key);
+      b.setAttribute('aria-pressed','true');
+      document.getElementById(propFor[key]).classList.add('picked');
+      composure = Math.max(0, composure - PICK_COST);
+      // picks pay off elsewhere: cleaning the seat lifts Cleanliness
+      if (key === 'seat') document.getElementById('cleanFill').style.width = '92%';
+      if (key === 'latch') { discFill.style.width = '94%'; flash('pillDisc'); }
+    }
+    // enforce the cap of 2 by graying, not by erroring
+    document.querySelectorAll('.pcard').forEach(function(c){
+      c.disabled = (picks.length >= 2 && c.getAttribute('aria-pressed') !== 'true');
+    });
+  });
+
+  function flash(id){
+    var el = document.getElementById(id);
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  }
+
+  document.getElementById('justGo').addEventListener('click', function(){ setPhase('sit'); });
+
+  // ---------- getaway choices ----------
+  document.getElementById('btnWash').addEventListener('click', function(){
+    composure = Math.max(0, composure - 8);
+    var w = Math.min(100, parseFloat(discFill.style.width || '82') + 12);
+    discFill.style.width = w + '%';
+    flash('pillDisc');
+    promptEl.className = 'prompt gold';
+    promptBig.textContent = '🚿 Washed · Discretion +';
+  });
+  document.getElementById('btnBolt').addEventListener('click', function(){
+    // penalty scales with how exposed you already were
+    var cur = parseFloat(discFill.style.width || '82');
+    var pen = cur > 75 ? 4 : (cur > 45 ? 12 : 22);
+    discFill.style.width = Math.max(0, cur - pen) + '%';
+    flash('pillDisc');
+    promptEl.className = 'prompt alert';
+    promptBig.textContent = '🏃 Bolted · Discretion −' + pen;
+  });
+
+  // ---------- reset ----------
+  document.getElementById('resetBtn').addEventListener('click', function(){
+    force = 8; reliefVal = 38; composure = 100; picks = [];
+    discFill.style.width = '82%';
+    document.getElementById('cleanFill').style.width = '70%';
+    document.querySelectorAll('.pcard').forEach(function(c){
+      c.setAttribute('aria-pressed','false'); c.disabled = false;
+    });
+    document.querySelectorAll('.prop').forEach(function(p){ p.classList.remove('picked'); });
+    setTier('high'); setState('calm'); setPhase('prep');
+  });
+
+  // ---------- annotations ----------
+  var annotBtn = document.getElementById('annotBtn');
+  annotBtn.addEventListener('click', function(){
+    var on = screen.getAttribute('data-annot') === '1';
+    screen.setAttribute('data-annot', on ? '0':'1');
+    annotBtn.setAttribute('aria-pressed', on ? 'false':'true');
+    annotBtn.textContent = on ? 'Show zone labels' : 'Hide zone labels';
+  });
+
+  // ---------- hold interactions ----------
+  function down(e){ if(phase!=='sit') return; holding = true; ctlSit.setAttribute('data-holding','1'); if(e.cancelable) e.preventDefault(); }
+  function up(){ holding = false; ctlSit.setAttribute('data-holding','0'); }
+  pad.addEventListener('pointerdown', down);
+  window.addEventListener('pointerup', up);
+  pad.addEventListener('keydown', function(e){ if(e.code==='Space'||e.code==='Enter'){ if(!e.repeat) down(e);} });
+  pad.addEventListener('keyup',   function(e){ if(e.code==='Space'||e.code==='Enter'){ up(); } });
+
+  // ---------- main loop ----------
+  var last = performance.now();
+  function tick(now){
+    var dt = Math.min(0.1, (now - last)/1000); last = now;
+
+    // Prep: the clock visibly runs while you deliberate
+    if (phase === 'prep'){
+      composure = Math.max(0, composure - PREP_DRAIN*dt);
+      costTag.textContent = Math.round(composure) + '% left';
+    }
+
+    compFill.style.width = composure + '%';
+    compFill.style.background = composure < 25
+      ? 'linear-gradient(90deg,#FF3B30,#ff8a3d)'
+      : (composure < 55 ? 'linear-gradient(90deg,#FFB020,#ffd77a)'
+                        : 'linear-gradient(90deg,#34C759,#a6e34d)');
+
+    if (phase === 'sit'){
+      force += holding ? 3.2 : -4.5;
+      force = Math.max(0, Math.min(100, force));
+      needle.style.bottom = (8 + force*0.82) + '%';
+
+      var inFlow = force >= 38 && force <= 68;
+      var inRed  = force > 82;
+      needle.style.background = inRed ? '#FF3B30' : (inFlow ? '#eafff0' : '#f6f3ea');
+
+      if (holding){
+        if (inFlow) reliefVal += 0.55;
+        else if (inRed) reliefVal += 0.9;   // greedy
+        else reliefVal += 0.15;
+      }
+      reliefVal = Math.max(0, Math.min(100, reliefVal));
+      relief.style.height = reliefVal + '%';
+
+      if (inRed && holding && screen.getAttribute('data-state')==='calm'){
+        promptEl.className = 'prompt alert';
+        promptBig.textContent = '💦 Too hard — splashback!';
+      } else if (screen.getAttribute('data-state')==='calm' && promptEl.className.indexOf('alert')>-1){
+        setState('calm');
+      }
+    }
+
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  setPhase('sit');
+})();
+</script>
+</body>
+</html>
