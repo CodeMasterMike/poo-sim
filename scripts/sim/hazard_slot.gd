@@ -18,3 +18,8 @@ var active_len: float = 0.0      ## length of the ACTIVE (reaction) window
 var cost: float = 0.0            ## meter damage applied on failure
 var failed: bool = false         ## did the player blow the reaction?
 var stalls_relief: bool = false  ## while ACTIVE, does this hazard freeze The Push?
+## Forgiveness at the START of the ACTIVE window, in seconds. Human reaction time
+## is ~200ms; without this, being mid-push on the very first frame of a freeze is
+## an instant fail with no window at all. Tighten it in later worlds (the
+## difficulty curve wants generous windows early, tight ones late).
+var grace: float = 0.0

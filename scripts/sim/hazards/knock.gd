@@ -22,6 +22,7 @@ static func start(state: SimState, payload: SimEvent.KnockPayload) -> void:
 	slot.timer = payload.telegraph
 	slot.active_len = payload.freeze
 	slot.cost = payload.discretion_cost
+	slot.grace = payload.grace
 	state.hazards.append(slot)
 
 
@@ -36,8 +37,11 @@ static func tick(state: SimState, slot: HazardSlot, intent: PlayerIntent, level:
 		HazardSlot.Phase.ACTIVE:
 			var bleed := (100.0 / level.composure_seconds) * FREEZE_COMPOSURE_MULT * dt
 			state.composure = maxf(0.0, state.composure - bleed)
-			# One push during the freeze is enough — they heard you.
-			if intent.holding and not slot.failed:
+			# One push during the freeze is enough — they heard you. But the first
+			# `grace` seconds are forgiven: you get a beat to actually let go,
+			# instead of failing on the very first frame for being mid-push.
+			var since_freeze_began := slot.active_len - slot.timer
+			if intent.holding and not slot.failed and since_freeze_began >= slot.grace:
 				slot.failed = true
 				state.apply_meter(SimState.Meter.DISCRETION, -slot.cost)
 			slot.timer -= dt

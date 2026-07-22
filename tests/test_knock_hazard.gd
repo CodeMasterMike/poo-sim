@@ -68,6 +68,28 @@ func test_push_during_freeze_fails_and_craters_discretion() -> void:
 	assert_eq(state.discretion, 60.0, "Discretion should crater by exactly the cost, once")
 
 
+## The grace window forgives human reaction time: still mid-push when the freeze
+## begins is fine, as long as you let go within it. Freeze starts ~step 179 and
+## the default 0.25s grace covers ~15 steps, so releasing at 190 is in time.
+func test_grace_window_forgives_a_late_release() -> void:
+	var release_late := func(s: int) -> bool: return s < 190
+	var state := _run(_make_knock_level, 1337, release_late, int(6.0 / SimClock.FIXED_DT))
+
+	assert_false(state.last_hazard_failed, "releasing inside the grace window must still pass")
+	assert_eq(state.hazards_passed, 1, "a late-but-in-time release should count as passed")
+	assert_eq(state.discretion, 100.0, "no Discretion cost when the release lands in grace")
+
+
+## Holding past the grace window still fails — grace forgives reaction time, not
+## ignoring the knock outright.
+func test_holding_past_grace_still_fails() -> void:
+	var hold_through := func(s: int) -> bool: return s >= 180 and s < 300
+	var state := _run(_make_knock_level, 1337, hold_through, int(6.0 / SimClock.FIXED_DT))
+
+	assert_true(state.last_hazard_failed, "holding beyond the grace window must fail")
+	assert_eq(state.discretion, 60.0, "Discretion craters by the cost, once")
+
+
 ## The freeze stalls Relief: it doesn't accrue across the freeze even while
 ## holding (which would otherwise fill fastest).
 func test_freeze_stalls_relief() -> void:

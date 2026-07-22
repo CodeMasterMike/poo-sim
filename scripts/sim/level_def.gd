@@ -27,19 +27,32 @@ extends Resource
 ## never out-race Composure — doing nothing must lose, not win.
 @export var fill_dead: float = 0.5
 @export var fill_flow: float = 2.2
-@export var fill_red: float = 3.4
+## Red must be a genuine temptation, not a trap. At 4.5 with the splash duty
+## cycle below it nets ~3.4%/s — about 1.5x flow. (At 3.4 it netted *less* than
+## flow once stalls were counted, so the greedy line was strictly dominated and
+## nobody would ever take it.)
+@export var fill_red: float = 4.5
 
 # --- Red-zone risk ---
-@export var red_strain_time: float = 1.5   ## seconds camping red before a splash fires
+## 2.5s of strain means a short red burst is free, which makes red a tactical
+## dip rather than a punish; sustained camping still splashes repeatedly.
+@export var red_strain_time: float = 2.5   ## seconds camping red before a splash fires
 @export var splash_stall_time: float = 0.5 ## seconds Relief is frozen after a splash
 
 # --- Four-meter tuning ---
-@export var composure_seconds: float = 60.0    ## full Composure lasts ~this long at flow baseline
+## 80s of Composure against a ~57s ideal fill. At 60 even a flawless run ran out
+## of clock at ~92% Relief — the sit was literally unwinnable.
+@export var composure_seconds: float = 80.0    ## full Composure lasts ~this long at flow baseline
 @export var composure_drain_dead: float = 1.7  ## drain multiplier while in the dead zone
 @export var composure_drain_red: float = 1.3   ## drain multiplier while in the red zone
 @export var splash_cleanliness_hit: float = 12.0 ## Cleanliness lost per splash
-@export var red_noise_rate: float = 20.0       ## Discretion lost per second camping red (noise)
-@export var smell_rate: float = 1.0            ## Discretion lost per second (ambient smell)
+## A 2s red burst should cost ~10 Discretion, not wipe the meter. At 20/s red
+## emptied Discretion in five seconds flat.
+@export var red_noise_rate: float = 5.0        ## Discretion lost per second camping red (noise)
+## Ambient bleed over a full sit should be a nuisance (~-19), not most of the
+## meter. At 1.0/s a flawless run still ended near zero, making the 300-point
+## Discretion axis all but un-earnable.
+@export var smell_rate: float = 0.35           ## Discretion lost per second (ambient smell)
 @export var detect_threshold: float = 35.0     ## Discretion below this = a detection event
 
 # --- Timeline (SimEvent is RefCounted, so this is runtime-only, not exported) ---

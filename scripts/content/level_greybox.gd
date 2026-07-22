@@ -16,7 +16,8 @@ static func timeline() -> Array[SimEvent]:
 	# OPEN — a calm stretch to read the Flow Zone, then the first reaction test.
 	# The knock lands somewhere in 4.5-7.5s: jitter is rolled once from the match
 	# seed, so it varies run to run but is identical for a given seed.
-	t.append(SimEvent.knock(6.0, 1.5, 2.0, 40.0).with_jitter(1.5))
+	# Generous 0.35s grace on the first one — it's the teaching knock.
+	t.append(SimEvent.knock(6.0, 1.5, 2.0, 40.0, 0.35).with_jitter(1.5))
 
 	# MIDDLE — escalation paced by progress, not the clock.
 	# At ~30% Relief the zone narrows and drifts up: a stubborn stretch that
@@ -30,7 +31,8 @@ static func timeline() -> Array[SimEvent]:
 	# A second, tighter knock (shorter telegraph, steeper cost) somewhere around
 	# the halfway mark — proof that multiple knocks per sit work, and that a
 	# hazard can be scheduled off progress.
-	t.append(SimEvent.knock(0.0, 1.0, 2.0, 45.0).on_relief(55.0).with_jitter(8.0))
+	# Tighter: shorter telegraph, steeper cost, and only 0.15s of grace.
+	t.append(SimEvent.knock(0.0, 1.0, 2.0, 45.0, 0.15).on_relief(55.0).with_jitter(8.0))
 
 	# A breather: the zone widens and settles back down.
 	t.append(SimEvent.flow_zone(0.0, [Vector2(0.48, 0.70)], 2.0).on_relief(68.0))
