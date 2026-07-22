@@ -51,6 +51,9 @@ func _apply(ev: SimEvent, state: SimState, clock: SimClock) -> void:
 			var pr := ev.payload as SimEvent.PromptPayload
 			last_prompt = pr.text
 			_prompt_until_step = clock.step + int(round(pr.hold / SimClock.FIXED_DT))
+		SimEvent.Kind.KNOCK:
+			# Arms the hazard; PushSim ticks it from here (its freeze phase gates fill).
+			KnockHazard.start(state, ev.payload as SimEvent.KnockPayload)
 		_:
-			# KNOCK / JOLT / BUZZ and future hazards: slots reserved, no handlers yet.
+			# JOLT / BUZZ and future hazards: slots reserved, no handlers yet.
 			pass

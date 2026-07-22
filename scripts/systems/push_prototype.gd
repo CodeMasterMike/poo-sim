@@ -89,6 +89,9 @@ var _last_splash_pulse: int = 0
 var _milestone_flash: float = 0.0
 var _next_milestone: int = 25
 var _shake: Vector2 = Vector2.ZERO
+var _last_knock_phase: int = 0
+var _knock_flash: float = 0.0
+var _knock_flash_good: bool = false
 
 
 func _ready() -> void:
@@ -145,6 +148,13 @@ func _process(delta: float) -> void:
 		_shake = Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * mag
 	else:
 		_shake = Vector2.ZERO
+
+	# Knock resolution feedback — edge-detected off the model, purely visual.
+	if _state.knock_phase == KnockHazard.Phase.RESOLVED and _last_knock_phase != KnockHazard.Phase.RESOLVED:
+		_knock_flash = 0.8
+		_knock_flash_good = not _state.knock_failed
+	_last_knock_phase = _state.knock_phase
+	_knock_flash = maxf(0.0, _knock_flash - delta)
 
 	queue_redraw()
 
@@ -218,6 +228,8 @@ func _reset() -> void:
 	_milestone_flash = 0.0
 	_next_milestone = 25
 	_shake = Vector2.ZERO
+	_last_knock_phase = 0
+	_knock_flash = 0.0
 
 
 func _initial_state(level: LevelDef) -> SimState:
@@ -263,6 +275,15 @@ func _draw() -> void:
 		tint.a = 0.35 * (_splash_flash / 0.4)
 		draw_rect(Rect2(-40, -40, w + 80, h + 80), tint)
 		_text(font, "SPLASH!", 0, int(h * 0.44), w, int(h * 0.045), NEEDLE)
+
+	# Knock resolution banner (brief).
+	if _knock_flash > 0.0:
+		var kcol := FLOW if _knock_flash_good else RED
+		var kt := kcol
+		kt.a = 0.22 * (_knock_flash / 0.8)
+		draw_rect(Rect2(-40, -40, w + 80, h + 80), kt)
+		var ktxt := "STAYED QUIET" if _knock_flash_good else "THEY HEARD YOU!"
+		_text(font, ktxt, 0, int(h * 0.40), w, int(h * 0.040), kcol)
 
 	_draw_overlay(font, w, h)
 
@@ -334,9 +355,17 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 	draw_rect(Rect2(gx - gw * 0.16, ny - 14, gw * 1.32, 28), glow_col)
 	draw_rect(Rect2(gx - gw * 0.08, ny - 6, gw * 1.16, 12), NEEDLE)
 
+	# During a Knock freeze, frost the gauge and flip the demand to RELEASE (UI spec).
+	if KnockHazard.freezing(_state):
+		draw_rect(Rect2(gx - 8, gy - 8, gw + 16, gh + 16), Color(0.55, 0.78, 0.98, 0.16))
+
 	_text(font, "THE PUSH", gx - 8, int(gy - h * 0.018), gw + 16, int(h * 0.016), TEXT_DIM)
 	var zname: String = ["DEAD ZONE", "FLOW", "RED ZONE"][zone]
-	_text(font, zname, gx - 8, int(gbot + h * 0.04), gw + 16, int(h * 0.024), zcol)
+	var zlabel_col := zcol
+	if KnockHazard.freezing(_state):
+		zname = "RELEASE"
+		zlabel_col = Color(0.72, 0.88, 1.0)
+	_text(font, zname, gx - 8, int(gbot + h * 0.04), gw + 16, int(h * 0.024), zlabel_col)
 
 
 func _draw_relief(font: Font, w: float, h: float) -> void:
@@ -359,12 +388,29 @@ func _draw_relief(font: Font, w: float, h: float) -> void:
 
 
 func _draw_prompt(font: Font, w: float, h: float) -> void:
-	if _scheduler.last_prompt.is_empty():
+	# A live hazard owns the prompt band; otherwise fall back to a scheduled prompt.
+	var text := _knock_banner()
+	var col := ORANGE
+	if not text.is_empty():
+		col = RED if KnockHazard.freezing(_state) else AMBER
+	elif not _scheduler.last_prompt.is_empty():
+		text = _scheduler.last_prompt
+	if text.is_empty():
 		return
 	var by := h * 0.74
 	var bh := h * 0.05
-	draw_rect(Rect2(w * 0.10, by, w * 0.80, bh), ORANGE)
-	_text(font, _scheduler.last_prompt, 0, int(by + bh * 0.66), w, int(h * 0.026), Color(0.1, 0.08, 0.05))
+	draw_rect(Rect2(w * 0.10, by, w * 0.80, bh), col)
+	_text(font, text, 0, int(by + bh * 0.66), w, int(h * 0.026), Color(0.1, 0.08, 0.05))
+
+
+func _knock_banner() -> String:
+	match _state.knock_phase:
+		KnockHazard.Phase.TELEGRAPH:
+			return "*knock knock*  —  GET READY TO STOP"
+		KnockHazard.Phase.FREEZE:
+			return "HOLD STILL  —  RELEASE!"
+		_:
+			return ""
 
 
 func _draw_overlay(font: Font, w: float, h: float) -> void:

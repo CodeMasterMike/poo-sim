@@ -12,6 +12,10 @@ extends RefCounted
 static func timeline() -> Array[SimEvent]:
 	var t: Array[SimEvent] = []
 
+	# ~5s: The Knock. 1.5s telegraph, then a 2s freeze — release and hold still or
+	# Discretion craters by 40. The first real reaction test of the sit.
+	t.append(SimEvent.knock(5.0, 1.5, 2.0, 40.0))
+
 	# ~8s: the Flow Zone narrows and drifts upward — a "stubborn stretch" that
 	# forces a firmer push (and flirts with the red zone's noise/splash risk).
 	t.append(SimEvent.flow_zone(8.0, [Vector2(0.58, 0.72)], 1.5))
@@ -23,5 +27,9 @@ static func timeline() -> Array[SimEvent]:
 
 	# ~17s: the zone shifts back down and widens — relief, and a chance to recover.
 	t.append(SimEvent.flow_zone(17.0, [Vector2(0.46, 0.70)], 2.0))
+
+	# ~21s: a second, tighter Knock (shorter telegraph, steeper cost) — shows the
+	# same hazard scaling up, and that multiple knocks per sit are supported.
+	t.append(SimEvent.knock(21.0, 1.0, 2.0, 45.0))
 
 	return t

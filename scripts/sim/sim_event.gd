@@ -46,6 +46,10 @@ static func prompt(t: float, text: String, hold: float) -> SimEvent:
 	return SimEvent.new(t, Kind.PROMPT, PromptPayload.new(text, hold))
 
 
+static func knock(t: float, telegraph: float, freeze: float, discretion_cost: float) -> SimEvent:
+	return SimEvent.new(t, Kind.KNOCK, KnockPayload.new(telegraph, freeze, discretion_cost))
+
+
 # --- Typed payloads (inner classes: referenced as SimEvent.FlowZonePayload etc.) ---
 
 class FlowZonePayload extends RefCounted:
@@ -70,3 +74,13 @@ class PromptPayload extends RefCounted:
 	func _init(tx: String, h: float) -> void:
 		text = tx
 		hold = h
+
+
+class KnockPayload extends RefCounted:
+	var telegraph: float        ## warning window before the freeze (seconds)
+	var freeze: float           ## the reaction window — release and hold still (seconds)
+	var discretion_cost: float  ## Discretion lost if a push lands during the freeze
+	func _init(tg: float, fz: float, dc: float) -> void:
+		telegraph = tg
+		freeze = fz
+		discretion_cost = dc

@@ -40,40 +40,49 @@ func tick(state: SimState, intent: PlayerIntent, _clock: SimClock, level: LevelD
 
 	var zone := PushSim.zone_of(state)
 
-	# --- Red-zone strain: camp the red and you eventually splash ---
-	if zone == ZONE_RED:
-		state.strain += dt / level.red_strain_time
-		if state.strain >= 1.0:
-			_splash(state, level)
-	else:
-		state.strain = maxf(0.0, state.strain - dt / level.red_strain_time)
+	# --- Active hazards tick here, before fill/drain — a freeze gates them below.
+	#     (This is the extension point: hazard #2 ticks alongside The Knock.) ---
+	if KnockHazard.is_active(state):
+		KnockHazard.tick(state, intent, level, dt)
+	var frozen := KnockHazard.freezing(state)
 
-	# --- Relief fill (frozen during a splash stall — the mess cost) ---
-	if state.splash_stall > 0.0:
-		state.splash_stall = maxf(0.0, state.splash_stall - dt)
-	else:
-		var rate := level.fill_dead
-		if zone == ZONE_FLOW:
-			rate = level.fill_flow
+	# --- Red-zone strain: camp the red and you eventually splash (paused mid-freeze) ---
+	if not frozen:
+		if zone == ZONE_RED:
+			state.strain += dt / level.red_strain_time
+			if state.strain >= 1.0:
+				_splash(state, level)
+		else:
+			state.strain = maxf(0.0, state.strain - dt / level.red_strain_time)
+
+	# --- Relief fill (frozen during a splash stall OR a Knock freeze) ---
+	if not frozen:
+		if state.splash_stall > 0.0:
+			state.splash_stall = maxf(0.0, state.splash_stall - dt)
+		else:
+			var rate := level.fill_dead
+			if zone == ZONE_FLOW:
+				rate = level.fill_flow
+			elif zone == ZONE_RED:
+				rate = level.fill_red
+			var gained := rate * dt
+			state.relief = minf(100.0, state.relief + gained)
+			state.total_fill += gained
+			if zone == ZONE_FLOW:
+				state.flow_fill += gained
+			if state.relief >= 100.0:
+				state.phase = SimState.Phase.WON
+				return
+
+	# --- Composure: the Knock bleeds it while frozen; otherwise it drains by zone ---
+	if not frozen:
+		var base_drain := 100.0 / level.composure_seconds
+		var drain := base_drain
+		if zone == ZONE_DEAD:
+			drain = base_drain * level.composure_drain_dead
 		elif zone == ZONE_RED:
-			rate = level.fill_red
-		var gained := rate * dt
-		state.relief = minf(100.0, state.relief + gained)
-		state.total_fill += gained
-		if zone == ZONE_FLOW:
-			state.flow_fill += gained
-		if state.relief >= 100.0:
-			state.phase = SimState.Phase.WON
-			return
-
-	# --- Composure: always draining, faster off the flow band ---
-	var base_drain := 100.0 / level.composure_seconds
-	var drain := base_drain
-	if zone == ZONE_DEAD:
-		drain = base_drain * level.composure_drain_dead
-	elif zone == ZONE_RED:
-		drain = base_drain * level.composure_drain_red
-	state.composure = maxf(0.0, state.composure - drain * dt)
+			drain = base_drain * level.composure_drain_red
+		state.composure = maxf(0.0, state.composure - drain * dt)
 	if state.composure <= 0.0:
 		state.phase = SimState.Phase.LOST
 		return
