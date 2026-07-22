@@ -64,7 +64,11 @@ extends Resource
 @export var smell_telegraph: float = 1.2     ## the cloud drifting in (seconds)
 @export var smell_window: float = 1.6        ## last-chance reaction window
 @export var smell_cost: float = 18.0         ## Discretion lost if it lands unwafted
-@export var swipe_min: float = 15.0          ## drag distance in one step that counts as a waft
+@export var swipe_min: float = 15.0          ## drag distance in one step that counts as a swipe
+
+# --- Jolt ---
+## How far a successful swipe drags the needle back toward the Flow band (0..1).
+@export var jolt_recenter: float = 0.6
 
 # --- Timeline (SimEvent is RefCounted, so this is runtime-only, not exported) ---
 var timeline: Array[SimEvent] = []

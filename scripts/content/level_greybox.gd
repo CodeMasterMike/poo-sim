@@ -24,6 +24,17 @@ static func timeline() -> Array[SimEvent]:
 	# demands a firmer push, flirting with the red zone's noise and splash risk.
 	t.append(SimEvent.flow_zone(0.0, [Vector2(0.58, 0.72)], 1.5).on_relief(30.0))
 
+	# ~14s: turbulence. Environmental, so it stays on the clock rather than
+	# tracking progress. Deliberately placed between the two knocks — a jolt
+	# demands a swipe while a knock demands no input at all, and the catalog's
+	# fairness rules say never to stack contradictory inputs (saving that bind
+	# for a later world's difficulty).
+	t.append(SimEvent.jolt(14.0, 0.6, 1.5, 1.2).with_jitter(2.5))
+
+	# ~40% Relief: the phone goes off mid-escalation. Bleeds Composure the whole
+	# time it buzzes, so ignoring it costs even before it rings out.
+	t.append(SimEvent.buzz(0.0, 1.0, 2.0, 15.0, 3.0).on_relief(40.0).with_jitter(6.0))
+
 	# NOTE: the Smell Cloud used to be faked here as a prompt plus a flat -22
 	# Discretion hit on the clock. It's now a real emergent hazard emitted by
 	# pushing in the red (see SmellCloudHazard), so it belongs to how you play

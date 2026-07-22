@@ -38,10 +38,14 @@ func _process(_delta: float) -> void:
 	if st == null or st.flow_bands.is_empty():
 		return
 
-	# Waft any incoming Smell Cloud — a flick disperses it in either phase, and
-	# it doesn't stall the push, so this costs nothing to do immediately.
-	if Hazards.find(st, SimEvent.Kind.SMELL) != null:
+	# Swipe-answerable hazards: waft a Smell Cloud, re-centre after a Jolt. Both
+	# are free to answer immediately, and one swipe serves either.
+	if Hazards.find(st, SimEvent.Kind.SMELL) != null or Hazards.find(st, SimEvent.Kind.JOLT) != null:
 		sit.set_auto_swipe(Vector2(60.0, 0.0))
+
+	# Dismiss the phone before it rings out.
+	if Hazards.find(st, SimEvent.Kind.BUZZ) != null:
+		sit.set_auto_tap(true)
 
 	# A freeze hazard (The Knock) demands no input at all — release and hold still.
 	if Hazards.relief_stalled(st):

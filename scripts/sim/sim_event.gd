@@ -94,6 +94,15 @@ static func smell(t: float, telegraph: float, window: float, discretion_cost: fl
 	return SimEvent.new(t, Kind.SMELL, SmellPayload.new(telegraph, window, discretion_cost))
 
 
+static func jolt(t: float, telegraph: float, window: float, displacement: float) -> SimEvent:
+	return SimEvent.new(t, Kind.JOLT, JoltPayload.new(telegraph, window, displacement))
+
+
+static func buzz(t: float, telegraph: float, window: float, discretion_cost: float,
+		composure_drain: float) -> SimEvent:
+	return SimEvent.new(t, Kind.BUZZ, BuzzPayload.new(telegraph, window, discretion_cost, composure_drain))
+
+
 # --- Typed payloads (inner classes: referenced as SimEvent.FlowZonePayload etc.) ---
 
 class FlowZonePayload extends RefCounted:
@@ -140,3 +149,25 @@ class SmellPayload extends RefCounted:
 		telegraph = tg
 		window = wn
 		discretion_cost = dc
+
+
+class JoltPayload extends RefCounted:
+	var telegraph: float        ## the rumble before the hit
+	var window: float           ## how long you have to swipe the needle back
+	var displacement: float     ## impulse added to needle velocity when it lands
+	func _init(tg: float, wn: float, dp: float) -> void:
+		telegraph = tg
+		window = wn
+		displacement = dp
+
+
+class BuzzPayload extends RefCounted:
+	var telegraph: float        ## the first quiet buzz
+	var window: float           ## how long before it rings out audibly
+	var discretion_cost: float  ## Discretion lost if you let it ring
+	var composure_drain: float  ## Composure bled per second while it keeps buzzing
+	func _init(tg: float, wn: float, dc: float, cd: float) -> void:
+		telegraph = tg
+		window = wn
+		discretion_cost = dc
+		composure_drain = cd

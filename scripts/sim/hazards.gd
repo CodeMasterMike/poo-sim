@@ -2,21 +2,32 @@ class_name Hazards
 extends RefCounted
 ## Dispatch layer for in-flight hazards. One place decides which operator ticks
 ## which slot, so PushSim stays a single ordered mutation path (determinism) and
-## adding a hazard is "one arm here + one operator file" — no changes to SimState.
+## adding a hazard is "one arm each here + one operator file" — no changes to
+## SimState or PushSim.
+##
+## The SimClock is threaded through so hazards can pull from the match-seeded RNG
+## (the Jolt rolls its direction). Any hazard randomness must come from there,
+## never a global randf(), or replays and mirrored boards break.
 
-## Arm a hazard from its scheduled event payload.
-static func start(state: SimState, kind: int, payload: RefCounted) -> void:
+## Arm a hazard from its payload, whether that came from the timeline or from
+## emergent play (see PushSim's smell charge).
+static func start(state: SimState, kind: int, payload: RefCounted, clock: SimClock) -> void:
 	match kind:
 		SimEvent.Kind.KNOCK:
 			KnockHazard.start(state, payload as SimEvent.KnockPayload)
 		SimEvent.Kind.SMELL:
 			SmellCloudHazard.start(state, payload as SimEvent.SmellPayload)
+		SimEvent.Kind.JOLT:
+			JoltHazard.start(state, payload as SimEvent.JoltPayload, clock)
+		SimEvent.Kind.BUZZ:
+			BuzzHazard.start(state, payload as SimEvent.BuzzPayload, clock)
 		_:
-			pass  # JOLT / BUZZ and the rest: slots reserved, no operators yet
+			pass  # the rest of the catalog: slots reserved, no operators yet
 
 
 ## Advance every in-flight hazard, then retire the resolved ones.
-static func tick(state: SimState, intent: PlayerIntent, level: LevelDef, dt: float) -> void:
+static func tick(state: SimState, intent: PlayerIntent, level: LevelDef, clock: SimClock,
+		dt: float) -> void:
 	for slot in state.hazards:
 		if slot.phase == HazardSlot.Phase.RESOLVED:
 			continue
@@ -25,6 +36,10 @@ static func tick(state: SimState, intent: PlayerIntent, level: LevelDef, dt: flo
 				KnockHazard.tick(state, slot, intent, level, dt)
 			SimEvent.Kind.SMELL:
 				SmellCloudHazard.tick(state, slot, intent, level, dt)
+			SimEvent.Kind.JOLT:
+				JoltHazard.tick(state, slot, intent, level, clock, dt)
+			SimEvent.Kind.BUZZ:
+				BuzzHazard.tick(state, slot, intent, level, clock, dt)
 			_:
 				pass
 	_sweep(state)

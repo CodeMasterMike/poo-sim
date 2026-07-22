@@ -60,8 +60,13 @@ var _key_down: bool = false
 var _touches: Dictionary = {}
 var _tap_queued: bool = false
 var _swipe_queued: Vector2 = Vector2.ZERO
+## A tap is a SHORT press. It has to be distinguished from the press that begins
+## a hold, or every push would dismiss The Buzz by accident.
+const TAP_MAX_SECONDS: float = 0.25
+var _press_started: float = 0.0
 var _auto_hold: bool = false      ## set by the debug auto-player, if attached
 var _auto_swipe: Vector2 = Vector2.ZERO
+var _auto_tap: bool = false
 var _auto_player: AutoPlayer = null
 
 # --- View-only feedback (never feeds back into the sim) ---
@@ -103,6 +108,11 @@ func set_auto_swipe(value: Vector2) -> void:
 	_auto_swipe = value
 
 
+## Queue a tap for the next simulation step, as a short press would. Debug-only.
+func set_auto_tap(value: bool) -> void:
+	_auto_tap = value
+
+
 func _set_auto_play(enabled: bool) -> void:
 	auto_play = enabled
 	if enabled and _auto_player == null:
@@ -120,13 +130,17 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		_mouse_down = event.pressed
 		if event.pressed:
+			_press_started = _t
+		elif _t - _press_started <= TAP_MAX_SECONDS:
 			_tap_queued = true
 	elif event is InputEventScreenTouch:
 		if event.pressed:
 			_touches[event.index] = true
-			_tap_queued = true
+			_press_started = _t
 		else:
 			_touches.erase(event.index)
+			if _t - _press_started <= TAP_MAX_SECONDS:
+				_tap_queued = true
 	elif event is InputEventScreenDrag:
 		_swipe_queued += event.relative
 	elif event is InputEventMouseMotion and _mouse_down:
@@ -162,9 +176,15 @@ func _process(delta: float) -> void:
 
 	_splash_flash = maxf(0.0, _splash_flash - delta)
 	_milestone_flash = maxf(0.0, _milestone_flash - delta)
+	var shake_mag := 0.0
 	if _splash_flash > 0.0:
-		var mag := 7.0 * (_splash_flash / 0.4)
-		_shake = Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * mag
+		shake_mag = 7.0 * (_splash_flash / 0.4)
+	# Turbulence keeps rattling the whole time it's on you.
+	var jolt := Hazards.find(_state, SimEvent.Kind.JOLT)
+	if jolt != null and jolt.phase == HazardSlot.Phase.ACTIVE:
+		shake_mag = maxf(shake_mag, 5.0)
+	if shake_mag > 0.0:
+		_shake = Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * shake_mag
 	else:
 		_shake = Vector2.ZERO
 
@@ -200,11 +220,12 @@ func _advance_sim(real_dt: float) -> void:
 func _drain_intent() -> PlayerIntent:
 	var intent := PlayerIntent.new()
 	intent.holding = _holding_now()
-	intent.tap = _tap_queued
+	intent.tap = _tap_queued or _auto_tap
 	intent.swipe = _swipe_queued + _auto_swipe
 	_tap_queued = false
 	_swipe_queued = Vector2.ZERO
 	_auto_swipe = Vector2.ZERO
+	_auto_tap = false
 	return intent
 
 
@@ -265,6 +286,7 @@ func _draw() -> void:
 	_draw_gauge(font, w, h)
 	_draw_relief(font, w, h)
 	_draw_smell(w, h)
+	_draw_buzz(w, h)
 	_draw_prompt(font, w, h)
 
 	# Footer readouts.
@@ -403,8 +425,12 @@ func _draw_prompt(font: Font, w: float, h: float) -> void:
 	var col := ORANGE
 	if not text.is_empty():
 		col = AMBER
-		var smell := Hazards.find(_state, SimEvent.Kind.SMELL)
-		if Hazards.relief_stalled(_state) or (smell != null and smell.phase == HazardSlot.Phase.ACTIVE):
+		# Red once a hazard is actually on you, amber while it's still telegraphing.
+		for kind in [SimEvent.Kind.SMELL, SimEvent.Kind.JOLT, SimEvent.Kind.BUZZ]:
+			var s := Hazards.find(_state, kind)
+			if s != null and s.phase == HazardSlot.Phase.ACTIVE:
+				col = RED
+		if Hazards.relief_stalled(_state):
 			col = RED
 	elif not _scheduler.last_prompt.is_empty():
 		text = _scheduler.last_prompt
@@ -423,12 +449,35 @@ func _hazard_banner() -> String:
 	if knock != null:
 		match knock.phase:
 			HazardSlot.Phase.TELEGRAPH:
-				return "*knock knock*  —  GET READY TO STOP"
+				return "*knock*  —  GET READY"
 			HazardSlot.Phase.ACTIVE:
 				return "HOLD STILL  —  RELEASE!"
+	var jolt := Hazards.find(_state, SimEvent.Kind.JOLT)
+	if jolt != null:
+		return "SWIPE TO RE-CENTER" if jolt.phase == HazardSlot.Phase.ACTIVE \
+				else "*rumble*  —  BRACE"
+	if Hazards.find(_state, SimEvent.Kind.BUZZ) != null:
+		return "BZZT  —  TAP TO DISMISS"
 	if Hazards.find(_state, SimEvent.Kind.SMELL) != null:
-		return "SMELL CLOUD  —  SWIPE TO WAFT"
+		return "SMELL  —  SWIPE TO WAFT"
 	return ""
+
+
+## The phone, buzzing away in your pocket — jittering faster once it's ringing out.
+func _draw_buzz(w: float, h: float) -> void:
+	if _state.phase != SimState.Phase.PLAYING:
+		return
+	var slot := Hazards.find(_state, SimEvent.Kind.BUZZ)
+	if slot == null:
+		return
+	var ringing := slot.phase == HazardSlot.Phase.ACTIVE
+	var jiggle := sin(_t * 42.0) * (3.0 if ringing else 1.2)
+	var pw := w * 0.055
+	var ph := h * 0.048
+	var px := w * 0.075 + jiggle
+	var py := h * 0.30
+	draw_rect(Rect2(px, py, pw, ph), ORANGE if ringing else AMBER)
+	draw_rect(Rect2(px + pw * 0.14, py + ph * 0.10, pw * 0.72, ph * 0.64), Color(0.12, 0.12, 0.14))
 
 
 ## The cloud itself: drifting and faint while incoming, close and solid once it's

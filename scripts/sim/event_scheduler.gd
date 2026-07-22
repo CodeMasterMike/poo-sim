@@ -78,4 +78,4 @@ func _apply(ev: SimEvent, state: SimState, clock: SimClock) -> void:
 			_prompt_until_step = clock.step + int(round(pr.hold / SimClock.FIXED_DT))
 		_:
 			# Hazard kinds arm an in-flight slot; Hazards owns the dispatch table.
-			Hazards.start(state, ev.kind, ev.payload)
+			Hazards.start(state, ev.kind, ev.payload, clock)

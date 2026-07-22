@@ -18,7 +18,7 @@ const ZONE_RED := 2
 const DETECT_RECOVER_MARGIN: float = 10.0
 
 
-func tick(state: SimState, intent: PlayerIntent, _clock: SimClock, level: LevelDef, dt: float) -> void:
+func tick(state: SimState, intent: PlayerIntent, clock: SimClock, level: LevelDef, dt: float) -> void:
 	if state.phase != SimState.Phase.PLAYING:
 		return
 
@@ -43,7 +43,7 @@ func tick(state: SimState, intent: PlayerIntent, _clock: SimClock, level: LevelD
 	# --- Active hazards tick here, before fill/drain — a freeze gates them below.
 	#     Hazards owns the dispatch table, so hazard #2..#14 need no change here. ---
 	if not state.hazards.is_empty():
-		Hazards.tick(state, intent, level, dt)
+		Hazards.tick(state, intent, level, clock, dt)
 	var frozen := Hazards.relief_stalled(state)
 
 	# --- Red-zone strain: camp the red and you eventually splash (paused mid-freeze) ---
@@ -67,7 +67,7 @@ func tick(state: SimState, intent: PlayerIntent, _clock: SimClock, level: LevelD
 		if state.smell_charge >= 1.0 and Hazards.find(state, SimEvent.Kind.SMELL) == null:
 			state.smell_charge = 0.0
 			Hazards.start(state, SimEvent.Kind.SMELL, SimEvent.SmellPayload.new(
-					level.smell_telegraph, level.smell_window, level.smell_cost))
+					level.smell_telegraph, level.smell_window, level.smell_cost), clock)
 
 	# --- Relief fill (frozen during a splash stall OR a Knock freeze) ---
 	if not frozen:

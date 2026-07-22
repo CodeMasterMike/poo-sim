@@ -15,7 +15,12 @@ var kind: int = 0                ## SimEvent.Kind of the hazard that owns this s
 var phase: int = Phase.TELEGRAPH
 var timer: float = 0.0           ## seconds left in the current phase
 var active_len: float = 0.0      ## length of the ACTIVE (reaction) window
-var cost: float = 0.0            ## meter damage applied on failure
+## The magnitude of the bad thing, in whatever unit the hazard deals in: meter
+## damage on failure for most, needle impulse for the Jolt.
+var cost: float = 0.0
+## Per-second bleed applied for as long as the hazard is unresolved (The Buzz's
+## distraction). Zero for hazards that only bite at the end.
+var drain: float = 0.0
 var failed: bool = false         ## did the player blow the reaction?
 var stalls_relief: bool = false  ## while ACTIVE, does this hazard freeze The Push?
 ## Forgiveness at the START of the ACTIVE window, in seconds. Human reaction time
