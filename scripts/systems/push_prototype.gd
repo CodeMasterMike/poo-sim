@@ -23,6 +23,10 @@ extends Control
 ## to reshuffle the schedule.
 @export var match_seed: int = 1337
 
+## Start with the debug auto-player attached (see scripts/debug/auto_player.gd).
+## Toggle at runtime with B. Off in normal play.
+@export var auto_play: bool = false
+
 # --- Colors (grey-box palette, meter language from the UI spec) ---
 const BG := Color(0.09, 0.10, 0.12)
 const PANEL := Color(0.15, 0.17, 0.21)
@@ -56,6 +60,8 @@ var _key_down: bool = false
 var _touches: Dictionary = {}
 var _tap_queued: bool = false
 var _swipe_queued: Vector2 = Vector2.ZERO
+var _auto_hold: bool = false      ## set by the debug auto-player, if attached
+var _auto_player: AutoPlayer = null
 
 # --- View-only feedback (never feeds back into the sim) ---
 var _t: float = 0.0
@@ -71,10 +77,37 @@ var _knock_flash_good: bool = false
 
 func _ready() -> void:
 	_reset()
+	if auto_play:
+		_set_auto_play(true)
 
 
 func _holding_now() -> bool:
-	return _mouse_down or _key_down or not _touches.is_empty()
+	return _auto_hold or _mouse_down or _key_down or not _touches.is_empty()
+
+
+## Read-only access to the model for debug tooling. The view itself only ever
+## reads _state; nothing outside the sim may mutate it.
+func sim_state() -> SimState:
+	return _state
+
+
+## Input hook for the debug auto-player — deliberately routed through the same
+## intent path as a human hold, so a bot run is a real run.
+func set_auto_hold(value: bool) -> void:
+	_auto_hold = value
+
+
+func _set_auto_play(enabled: bool) -> void:
+	auto_play = enabled
+	if enabled and _auto_player == null:
+		_auto_player = AutoPlayer.new()
+		_auto_player.name = "AutoPlayer"
+		_auto_player.sit = self
+		add_child(_auto_player)
+	elif not enabled and _auto_player != null:
+		_auto_player.queue_free()
+		_auto_player = null
+		_auto_hold = false
 
 
 func _input(event: InputEvent) -> void:
@@ -95,6 +128,8 @@ func _input(event: InputEvent) -> void:
 			_key_down = event.pressed
 		elif event.keycode == KEY_R and event.pressed:
 			_reset()
+		elif event.keycode == KEY_B and event.pressed:
+			_set_auto_play(not auto_play)
 
 	# When the run is over, any fresh press retries.
 	if _state != null and _state.phase != SimState.Phase.PLAYING:
@@ -225,8 +260,10 @@ func _draw() -> void:
 	var fr := _state.flow_ratio()
 	_text(font, "Flow %d%%   ·   %.1fs" % [int(round(fr * 100.0)), _clock.elapsed],
 			0, int(h * 0.88), w, int(h * 0.022), TEXT_DIM)
-	_text(font, "HOLD anywhere to push   ·   release to relax   ·   R restart",
+	_text(font, "HOLD to push  ·  release to relax  ·  R restart  ·  B autoplay",
 			0, int(h * 0.93), w, int(h * 0.018), TEXT_DIM)
+	if auto_play:
+		_text(font, "· AUTOPLAY ·", 0, int(h * 0.85), w, int(h * 0.020), GOAL)
 
 	# Splash flash tint.
 	if _splash_flash > 0.0:
