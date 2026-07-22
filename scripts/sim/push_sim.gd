@@ -55,6 +55,20 @@ func tick(state: SimState, intent: PlayerIntent, _clock: SimClock, level: LevelD
 		else:
 			state.strain = maxf(0.0, state.strain - dt / level.red_strain_time)
 
+	# --- Smell: pushing hard builds a charge that eventually emits a cloud. This
+	#     is what makes the Smell Cloud a consequence of the greedy line rather
+	#     than a scheduled tax — see SmellCloudHazard. ---
+	if not frozen:
+		if zone == ZONE_RED:
+			state.smell_charge = minf(1.0, state.smell_charge + level.smell_charge_rate * dt)
+		else:
+			state.smell_charge = maxf(0.0, state.smell_charge - level.smell_decay_rate * dt)
+		# One cloud at a time; the charge holds until the current one clears.
+		if state.smell_charge >= 1.0 and Hazards.find(state, SimEvent.Kind.SMELL) == null:
+			state.smell_charge = 0.0
+			Hazards.start(state, SimEvent.Kind.SMELL, SimEvent.SmellPayload.new(
+					level.smell_telegraph, level.smell_window, level.smell_cost))
+
 	# --- Relief fill (frozen during a splash stall OR a Knock freeze) ---
 	if not frozen:
 		if state.splash_stall > 0.0:

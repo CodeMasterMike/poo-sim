@@ -55,6 +55,17 @@ extends Resource
 @export var smell_rate: float = 0.35           ## Discretion lost per second (ambient smell)
 @export var detect_threshold: float = 35.0     ## Discretion below this = a detection event
 
+# --- Smell Cloud (emergent hazard; emitted by hard pushing, not scheduled) ---
+## At 0.5/s a cloud forms after ~2s in the red — roughly in step with the splash
+## threshold, so a brief dip stays free but committing to the red line produces
+## something you have to deal with.
+@export var smell_charge_rate: float = 0.5   ## charge per second while pushing in the red
+@export var smell_decay_rate: float = 0.25   ## charge bled off per second otherwise
+@export var smell_telegraph: float = 1.2     ## the cloud drifting in (seconds)
+@export var smell_window: float = 1.6        ## last-chance reaction window
+@export var smell_cost: float = 18.0         ## Discretion lost if it lands unwafted
+@export var swipe_min: float = 15.0          ## drag distance in one step that counts as a waft
+
 # --- Timeline (SimEvent is RefCounted, so this is runtime-only, not exported) ---
 var timeline: Array[SimEvent] = []
 

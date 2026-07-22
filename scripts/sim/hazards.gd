@@ -9,6 +9,8 @@ static func start(state: SimState, kind: int, payload: RefCounted) -> void:
 	match kind:
 		SimEvent.Kind.KNOCK:
 			KnockHazard.start(state, payload as SimEvent.KnockPayload)
+		SimEvent.Kind.SMELL:
+			SmellCloudHazard.start(state, payload as SimEvent.SmellPayload)
 		_:
 			pass  # JOLT / BUZZ and the rest: slots reserved, no operators yet
 
@@ -21,6 +23,8 @@ static func tick(state: SimState, intent: PlayerIntent, level: LevelDef, dt: flo
 		match slot.kind:
 			SimEvent.Kind.KNOCK:
 				KnockHazard.tick(state, slot, intent, level, dt)
+			SimEvent.Kind.SMELL:
+				SmellCloudHazard.tick(state, slot, intent, level, dt)
 			_:
 				pass
 	_sweep(state)

@@ -13,7 +13,9 @@ extends RefCounted
 ## The Kind enum reserves hazard slots now, before their handlers exist, so
 ## serialized levels and ghosts stay forward-compatible.
 
-enum Kind { FLOW_ZONE, METER, PROMPT, KNOCK, JOLT, BUZZ }
+## SMELL is appended rather than slotted in, so the existing ordinals stay put and
+## any serialized level/ghost keeps meaning what it meant.
+enum Kind { FLOW_ZONE, METER, PROMPT, KNOCK, JOLT, BUZZ, SMELL }
 
 ## What makes the event fire. TIME is the clock; RELIEF paces the beat off the
 ## player's actual progress, which is what the spec's three-act micro-curve wants
@@ -85,6 +87,13 @@ static func knock(t: float, telegraph: float, freeze: float, discretion_cost: fl
 	return SimEvent.new(t, Kind.KNOCK, KnockPayload.new(telegraph, freeze, discretion_cost, grace))
 
 
+## A Smell Cloud is normally EMITTED by play rather than scheduled (see
+## PushSim's smell charge), but the payload is the same either way, so a level can
+## still script one — same hazard, same code path, two possible sources.
+static func smell(t: float, telegraph: float, window: float, discretion_cost: float) -> SimEvent:
+	return SimEvent.new(t, Kind.SMELL, SmellPayload.new(telegraph, window, discretion_cost))
+
+
 # --- Typed payloads (inner classes: referenced as SimEvent.FlowZonePayload etc.) ---
 
 class FlowZonePayload extends RefCounted:
@@ -121,3 +130,13 @@ class KnockPayload extends RefCounted:
 		freeze = fz
 		discretion_cost = dc
 		grace = gr
+
+
+class SmellPayload extends RefCounted:
+	var telegraph: float        ## the cloud drifting in — swipe early and it disperses
+	var window: float           ## last-chance reaction window once it arrives
+	var discretion_cost: float  ## Discretion lost if it lands unwafted
+	func _init(tg: float, wn: float, dc: float) -> void:
+		telegraph = tg
+		window = wn
+		discretion_cost = dc

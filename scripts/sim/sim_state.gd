@@ -48,6 +48,11 @@ var last_hazard_failed: bool = false
 var hazards_passed: int = 0
 var hazards_failed: int = 0
 
+## 0..1. Builds while pushing hard, bleeds off otherwise; at 1.0 PushSim emits a
+## Smell Cloud and resets it. This is what makes that hazard a consequence of how
+## you played rather than something the timeline does to you.
+var smell_charge: float = 0.0
+
 # --- Scoring accumulators (read at end-of-run by Scoring) ---
 var composure_start: float = 100.0
 var flow_fill: float = 0.0     ## Relief earned inside a flow band

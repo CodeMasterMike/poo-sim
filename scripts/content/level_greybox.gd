@@ -24,9 +24,10 @@ static func timeline() -> Array[SimEvent]:
 	# demands a firmer push, flirting with the red zone's noise and splash risk.
 	t.append(SimEvent.flow_zone(0.0, [Vector2(0.58, 0.72)], 1.5).on_relief(30.0))
 
-	# A scripted smell beat, still on the clock — a reminder both families coexist.
-	t.append(SimEvent.prompt(11.0, "SMELL CLOUD", 2.0))
-	t.append(SimEvent.meter(11.0, SimState.Meter.DISCRETION, -22.0))
+	# NOTE: the Smell Cloud used to be faked here as a prompt plus a flat -22
+	# Discretion hit on the clock. It's now a real emergent hazard emitted by
+	# pushing in the red (see SmellCloudHazard), so it belongs to how you play
+	# rather than to the timeline, and there's nothing to schedule.
 
 	# A second, tighter knock (shorter telegraph, steeper cost) somewhere around
 	# the halfway mark — proof that multiple knocks per sit work, and that a

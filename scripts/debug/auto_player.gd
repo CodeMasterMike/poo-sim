@@ -38,6 +38,11 @@ func _process(_delta: float) -> void:
 	if st == null or st.flow_bands.is_empty():
 		return
 
+	# Waft any incoming Smell Cloud — a flick disperses it in either phase, and
+	# it doesn't stall the push, so this costs nothing to do immediately.
+	if Hazards.find(st, SimEvent.Kind.SMELL) != null:
+		sit.set_auto_swipe(Vector2(60.0, 0.0))
+
 	# A freeze hazard (The Knock) demands no input at all — release and hold still.
 	if Hazards.relief_stalled(st):
 		sit.set_auto_hold(false)

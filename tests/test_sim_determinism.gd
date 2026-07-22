@@ -87,15 +87,17 @@ func test_composure_empty_is_a_loss() -> void:
 
 ## A scripted METER event on the timeline changes a meter at its step, and not
 ## before. smell_rate is zeroed so the only Discretion change is the event.
+## Built on its own timeline rather than the grey-box level, so content changes
+## can't quietly invalidate what this is asserting about the scheduler.
 func test_timeline_event_mutates_meter() -> void:
 	var make := func() -> LevelDef:
-		var l := _make_level()
+		var l := LevelDef.new()
 		l.smell_rate = 0.0
+		var tl: Array[SimEvent] = [SimEvent.meter(11.0, SimState.Meter.DISCRETION, -22.0)]
+		l.timeline = tl
 		return l
 	var never_hold := func(_step: int) -> bool: return false
 
-	# The grey-box smell event fires at t=11s (-22 Discretion). Sample before/after.
-	# The knock in between is passed by not holding, so it costs nothing.
 	var before := _run(make, 1337, never_hold, int(10.0 / SimClock.FIXED_DT))
 	var after := _run(make, 1337, never_hold, int(13.0 / SimClock.FIXED_DT))
 

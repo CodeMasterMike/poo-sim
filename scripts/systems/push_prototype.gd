@@ -61,6 +61,7 @@ var _touches: Dictionary = {}
 var _tap_queued: bool = false
 var _swipe_queued: Vector2 = Vector2.ZERO
 var _auto_hold: bool = false      ## set by the debug auto-player, if attached
+var _auto_swipe: Vector2 = Vector2.ZERO
 var _auto_player: AutoPlayer = null
 
 # --- View-only feedback (never feeds back into the sim) ---
@@ -97,6 +98,11 @@ func set_auto_hold(value: bool) -> void:
 	_auto_hold = value
 
 
+## Queue a swipe for the next simulation step, as a drag would. Debug-only.
+func set_auto_swipe(value: Vector2) -> void:
+	_auto_swipe = value
+
+
 func _set_auto_play(enabled: bool) -> void:
 	auto_play = enabled
 	if enabled and _auto_player == null:
@@ -122,6 +128,9 @@ func _input(event: InputEvent) -> void:
 		else:
 			_touches.erase(event.index)
 	elif event is InputEventScreenDrag:
+		_swipe_queued += event.relative
+	elif event is InputEventMouseMotion and _mouse_down:
+		# Desktop equivalent of a thumb swipe: drag while holding to waft.
 		_swipe_queued += event.relative
 	elif event is InputEventKey and not event.echo:
 		if event.keycode == KEY_SPACE:
@@ -192,9 +201,10 @@ func _drain_intent() -> PlayerIntent:
 	var intent := PlayerIntent.new()
 	intent.holding = _holding_now()
 	intent.tap = _tap_queued
-	intent.swipe = _swipe_queued
+	intent.swipe = _swipe_queued + _auto_swipe
 	_tap_queued = false
 	_swipe_queued = Vector2.ZERO
+	_auto_swipe = Vector2.ZERO
 	return intent
 
 
@@ -254,6 +264,7 @@ func _draw() -> void:
 	_draw_meters_top(font, w, h)
 	_draw_gauge(font, w, h)
 	_draw_relief(font, w, h)
+	_draw_smell(w, h)
 	_draw_prompt(font, w, h)
 
 	# Footer readouts.
@@ -384,11 +395,17 @@ func _draw_relief(font: Font, w: float, h: float) -> void:
 
 
 func _draw_prompt(font: Font, w: float, h: float) -> void:
+	# Nothing in-flight matters once the run is over — the results own the screen.
+	if _state.phase != SimState.Phase.PLAYING:
+		return
 	# A live hazard owns the prompt band; otherwise fall back to a scheduled prompt.
-	var text := _knock_banner()
+	var text := _hazard_banner()
 	var col := ORANGE
 	if not text.is_empty():
-		col = RED if Hazards.relief_stalled(_state) else AMBER
+		col = AMBER
+		var smell := Hazards.find(_state, SimEvent.Kind.SMELL)
+		if Hazards.relief_stalled(_state) or (smell != null and smell.phase == HazardSlot.Phase.ACTIVE):
+			col = RED
 	elif not _scheduler.last_prompt.is_empty():
 		text = _scheduler.last_prompt
 	if text.is_empty():
@@ -399,17 +416,37 @@ func _draw_prompt(font: Font, w: float, h: float) -> void:
 	_text(font, text, 0, int(by + bh * 0.66), w, int(h * 0.026), Color(0.1, 0.08, 0.05))
 
 
-func _knock_banner() -> String:
-	var slot := Hazards.find(_state, SimEvent.Kind.KNOCK)
+## A live hazard owns the prompt band. The Knock wins ties — it takes your input
+## away, so it's the more urgent read.
+func _hazard_banner() -> String:
+	var knock := Hazards.find(_state, SimEvent.Kind.KNOCK)
+	if knock != null:
+		match knock.phase:
+			HazardSlot.Phase.TELEGRAPH:
+				return "*knock knock*  —  GET READY TO STOP"
+			HazardSlot.Phase.ACTIVE:
+				return "HOLD STILL  —  RELEASE!"
+	if Hazards.find(_state, SimEvent.Kind.SMELL) != null:
+		return "SMELL CLOUD  —  SWIPE TO WAFT"
+	return ""
+
+
+## The cloud itself: drifting and faint while incoming, close and solid once it's
+## on you. Drawn from the model, so it can't disagree with the hazard state.
+func _draw_smell(w: float, h: float) -> void:
+	if _state.phase != SimState.Phase.PLAYING:
+		return
+	var slot := Hazards.find(_state, SimEvent.Kind.SMELL)
 	if slot == null:
-		return ""
-	match slot.phase:
-		HazardSlot.Phase.TELEGRAPH:
-			return "*knock knock*  —  GET READY TO STOP"
-		HazardSlot.Phase.ACTIVE:
-			return "HOLD STILL  —  RELEASE!"
-		_:
-			return ""
+		return
+	var arrived := slot.phase == HazardSlot.Phase.ACTIVE
+	var col := Color(0.55, 0.66, 0.24, 0.55 if arrived else 0.28)
+	var r := w * (0.13 if arrived else 0.10)
+	var cx := w * 0.5 + sin(_t * 1.6) * w * (0.02 if arrived else 0.06)
+	var cy := h * 0.168
+	draw_circle(Vector2(cx, cy), r, col)
+	draw_circle(Vector2(cx - r * 0.75, cy + r * 0.18), r * 0.72, col)
+	draw_circle(Vector2(cx + r * 0.75, cy + r * 0.12), r * 0.78, col)
 
 
 func _draw_overlay(font: Font, w: float, h: float) -> void:
