@@ -12,41 +12,16 @@ extends Control
 ## you splash (Cleanliness) and get loud (Discretion). Let Composure run out and
 ## you lose. Fill Relief to 100% to win. Tap or press R to retry.
 ##
-## The feel values are still @export-ed so you can tune them live in the remote
-## inspector and replay — they're copied into the LevelDef the sim consumes.
+## Tuning lives in exactly ONE place: LevelDef (scripts/sim/level_def.gd), a
+## Resource with @export fields. Leave `tuning_override` empty to use its
+## defaults — the same values the test suites read — or assign a .tres to
+## experiment without editing code.
+@export var tuning_override: LevelDef
 
-# --- Feel tuning (safe to tweak live while running) ---
-@export_group("Needle physics")
-@export var push_accel: float = 2.2
-@export var gravity: float = 1.6
-@export var damping: float = 3.0
-@export var max_speed: float = 1.5
-
-@export_group("Flow zone (0 = bottom, 1 = top)")
-@export var flow_low: float = 0.50
-@export var flow_high: float = 0.72
-
-@export_group("Relief fill (% per second)")
-@export var fill_dead: float = 4.0
-@export var fill_flow: float = 14.0
-@export var fill_red: float = 22.0
-
-@export_group("Red-zone risk")
-@export var red_strain_time: float = 1.5
-@export var splash_stall_time: float = 0.5
-
-@export_group("Meters")
-@export var composure_seconds: float = 60.0
-@export var composure_drain_dead: float = 1.7
-@export var composure_drain_red: float = 1.3
-@export var splash_cleanliness_hit: float = 12.0
-@export var red_noise_rate: float = 20.0
-@export var smell_rate: float = 1.0
-@export var detect_threshold: float = 35.0
-
-## Fixed so runs are reproducible (and to prove determinism). A real build would
-## vary this per match while keeping it constant within a match.
-const START_SEED: int = 1337
+## The per-match seed. Everything random — currently the jitter on when hazards
+## fire — is rolled from this, so one seed always replays the same sit. Change it
+## to reshuffle the schedule.
+@export var match_seed: int = 1337
 
 # --- Colors (grey-box palette, meter language from the UI spec) ---
 const BG := Color(0.09, 0.10, 0.12)
@@ -89,7 +64,7 @@ var _last_splash_pulse: int = 0
 var _milestone_flash: float = 0.0
 var _next_milestone: int = 25
 var _shake: Vector2 = Vector2.ZERO
-var _last_knock_phase: int = 0
+var _last_hazard_pulse: int = 0
 var _knock_flash: float = 0.0
 var _knock_flash_good: bool = false
 
@@ -149,11 +124,11 @@ func _process(delta: float) -> void:
 	else:
 		_shake = Vector2.ZERO
 
-	# Knock resolution feedback — edge-detected off the model, purely visual.
-	if _state.knock_phase == KnockHazard.Phase.RESOLVED and _last_knock_phase != KnockHazard.Phase.RESOLVED:
+	# Hazard resolution feedback — edge-detected off the model, purely visual.
+	if _state.hazard_resolve_pulse != _last_hazard_pulse:
+		_last_hazard_pulse = _state.hazard_resolve_pulse
 		_knock_flash = 0.8
-		_knock_flash_good = not _state.knock_failed
-	_last_knock_phase = _state.knock_phase
+		_knock_flash_good = not _state.last_hazard_failed
 	_knock_flash = maxf(0.0, _knock_flash - delta)
 
 	queue_redraw()
@@ -189,34 +164,18 @@ func _drain_intent() -> PlayerIntent:
 
 
 func _build_level() -> LevelDef:
-	var level := LevelDef.new()
-	level.push_accel = push_accel
-	level.gravity = gravity
-	level.damping = damping
-	level.max_speed = max_speed
-	level.flow_bands = [Vector2(flow_low, flow_high)]
-	level.fill_dead = fill_dead
-	level.fill_flow = fill_flow
-	level.fill_red = fill_red
-	level.red_strain_time = red_strain_time
-	level.splash_stall_time = splash_stall_time
-	level.composure_seconds = composure_seconds
-	level.composure_drain_dead = composure_drain_dead
-	level.composure_drain_red = composure_drain_red
-	level.splash_cleanliness_hit = splash_cleanliness_hit
-	level.red_noise_rate = red_noise_rate
-	level.smell_rate = smell_rate
-	level.detect_threshold = detect_threshold
+	# duplicate() so a shared .tres override is never mutated by the timeline.
+	var level: LevelDef = tuning_override.duplicate() if tuning_override != null else LevelDef.new()
 	level.timeline = LevelGreybox.timeline()
 	return level
 
 
 func _reset() -> void:
 	_level = _build_level()
-	_level.resolve_timeline(SimClock.FIXED_DT)
-	_match = MatchConfig.single_player(_level, START_SEED)
-
+	_match = MatchConfig.single_player(_level, match_seed)
 	_clock = SimClock.new(_match.match_seed)
+	# Roll the schedule's randomness from the match seed, before the first tick.
+	_level.resolve_timeline(SimClock.FIXED_DT, _clock.rng)
 	_state = _initial_state(_level)
 	_sim = PushSim.new()
 	_scheduler = EventScheduler.new()
@@ -228,7 +187,7 @@ func _reset() -> void:
 	_milestone_flash = 0.0
 	_next_milestone = 25
 	_shake = Vector2.ZERO
-	_last_knock_phase = 0
+	_last_hazard_pulse = 0
 	_knock_flash = 0.0
 
 
@@ -356,13 +315,13 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 	draw_rect(Rect2(gx - gw * 0.08, ny - 6, gw * 1.16, 12), NEEDLE)
 
 	# During a Knock freeze, frost the gauge and flip the demand to RELEASE (UI spec).
-	if KnockHazard.freezing(_state):
+	if Hazards.relief_stalled(_state):
 		draw_rect(Rect2(gx - 8, gy - 8, gw + 16, gh + 16), Color(0.55, 0.78, 0.98, 0.16))
 
 	_text(font, "THE PUSH", gx - 8, int(gy - h * 0.018), gw + 16, int(h * 0.016), TEXT_DIM)
 	var zname: String = ["DEAD ZONE", "FLOW", "RED ZONE"][zone]
 	var zlabel_col := zcol
-	if KnockHazard.freezing(_state):
+	if Hazards.relief_stalled(_state):
 		zname = "RELEASE"
 		zlabel_col = Color(0.72, 0.88, 1.0)
 	_text(font, zname, gx - 8, int(gbot + h * 0.04), gw + 16, int(h * 0.024), zlabel_col)
@@ -392,7 +351,7 @@ func _draw_prompt(font: Font, w: float, h: float) -> void:
 	var text := _knock_banner()
 	var col := ORANGE
 	if not text.is_empty():
-		col = RED if KnockHazard.freezing(_state) else AMBER
+		col = RED if Hazards.relief_stalled(_state) else AMBER
 	elif not _scheduler.last_prompt.is_empty():
 		text = _scheduler.last_prompt
 	if text.is_empty():
@@ -404,10 +363,13 @@ func _draw_prompt(font: Font, w: float, h: float) -> void:
 
 
 func _knock_banner() -> String:
-	match _state.knock_phase:
-		KnockHazard.Phase.TELEGRAPH:
+	var slot := Hazards.find(_state, SimEvent.Kind.KNOCK)
+	if slot == null:
+		return ""
+	match slot.phase:
+		HazardSlot.Phase.TELEGRAPH:
 			return "*knock knock*  —  GET READY TO STOP"
-		KnockHazard.Phase.FREEZE:
+		HazardSlot.Phase.ACTIVE:
 			return "HOLD STILL  —  RELEASE!"
 		_:
 			return ""

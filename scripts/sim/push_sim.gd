@@ -41,10 +41,10 @@ func tick(state: SimState, intent: PlayerIntent, _clock: SimClock, level: LevelD
 	var zone := PushSim.zone_of(state)
 
 	# --- Active hazards tick here, before fill/drain — a freeze gates them below.
-	#     (This is the extension point: hazard #2 ticks alongside The Knock.) ---
-	if KnockHazard.is_active(state):
-		KnockHazard.tick(state, intent, level, dt)
-	var frozen := KnockHazard.freezing(state)
+	#     Hazards owns the dispatch table, so hazard #2..#14 need no change here. ---
+	if not state.hazards.is_empty():
+		Hazards.tick(state, intent, level, dt)
+	var frozen := Hazards.relief_stalled(state)
 
 	# --- Red-zone strain: camp the red and you eventually splash (paused mid-freeze) ---
 	if not frozen:

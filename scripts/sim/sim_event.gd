@@ -15,8 +15,19 @@ extends RefCounted
 
 enum Kind { FLOW_ZONE, METER, PROMPT, KNOCK, JOLT, BUZZ }
 
+## What makes the event fire. TIME is the clock; RELIEF paces the beat off the
+## player's actual progress, which is what the spec's three-act micro-curve wants
+## ("random after ~30% Relief", the Final Push spike near 85%).
+enum Trigger { TIME, RELIEF }
+
 var time: float = 0.0
 var step: int = 0
+var trigger: int = Trigger.TIME
+var relief_at: float = 0.0
+## Randomizes the trigger point by +/- this much, rolled ONCE per match from the
+## match-seeded RNG. Same seed rolls the same schedule (fair mirrored boards,
+## reproducible ghosts); a different seed reshuffles the sit.
+var jitter: float = 0.0
 var kind: Kind = Kind.FLOW_ZONE
 var payload: RefCounted = null
 
@@ -27,9 +38,32 @@ func _init(t: float, k: Kind, p: RefCounted) -> void:
 	payload = p
 
 
-## Snap the authoring time onto the integer step grid. Called once at load.
-func resolve_step(fixed_dt: float) -> void:
-	step = int(round(time / fixed_dt))
+## Chainable authoring helpers: SimEvent.knock(...).on_relief(30.0).with_jitter(5.0)
+
+func on_relief(pct: float) -> SimEvent:
+	trigger = Trigger.RELIEF
+	relief_at = pct
+	return self
+
+
+func with_jitter(j: float) -> SimEvent:
+	jitter = j
+	return self
+
+
+## Fix the concrete trigger point for this match. Any jitter is rolled here, from
+## the seeded RNG, so the schedule is decided once and is identical for a given
+## seed. Time triggers also snap onto the integer step grid (comparing ints, not
+## a drifting float clock, is what keeps firing reproducible).
+func resolve(fixed_dt: float, rng: RandomNumberGenerator) -> void:
+	var roll := 0.0
+	if jitter > 0.0:
+		roll = rng.randf_range(-jitter, jitter)
+	if trigger == Trigger.RELIEF:
+		relief_at = clampf(relief_at + roll, 0.0, 100.0)
+		step = 0
+	else:
+		step = int(round(maxf(0.0, time + roll) / fixed_dt))
 
 
 # --- Static factories: author events with typed payloads and full autocomplete ---

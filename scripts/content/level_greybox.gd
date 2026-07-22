@@ -1,35 +1,43 @@
 class_name LevelGreybox
 extends RefCounted
-## The grey-box "prove the systems" level. Its only job is a timeline that visibly
-## exercises the machinery: the Flow Zone narrows and drifts, and a scripted beat
-## drops Discretion with a prompt — so you can watch the event stream modify the
-## session. This is content, not schema: swap it for real levels later without
-## touching scripts/sim/.
+## The grey-box "prove the systems" level. Its job is a timeline that exercises
+## the machinery end to end: both trigger families and seeded randomness.
 ##
-## Scalar tuning (physics, fill, meter rates) lives on the view's live-tune
-## exports for now; this factory owns the authored event sequence.
+## Shape follows the spec's three-act micro-curve — a calm open, escalation
+## through the middle, and a Final Push spike near the end — but the escalation
+## beats are keyed to **Relief**, not the clock, so the curve tracks how the
+## player is actually doing rather than a stopwatch.
+##
+## Content only: swap this for real levels without touching scripts/sim/.
 
 static func timeline() -> Array[SimEvent]:
 	var t: Array[SimEvent] = []
 
-	# ~5s: The Knock. 1.5s telegraph, then a 2s freeze — release and hold still or
-	# Discretion craters by 40. The first real reaction test of the sit.
-	t.append(SimEvent.knock(5.0, 1.5, 2.0, 40.0))
+	# OPEN — a calm stretch to read the Flow Zone, then the first reaction test.
+	# The knock lands somewhere in 4.5-7.5s: jitter is rolled once from the match
+	# seed, so it varies run to run but is identical for a given seed.
+	t.append(SimEvent.knock(6.0, 1.5, 2.0, 40.0).with_jitter(1.5))
 
-	# ~8s: the Flow Zone narrows and drifts upward — a "stubborn stretch" that
-	# forces a firmer push (and flirts with the red zone's noise/splash risk).
-	t.append(SimEvent.flow_zone(8.0, [Vector2(0.58, 0.72)], 1.5))
+	# MIDDLE — escalation paced by progress, not the clock.
+	# At ~30% Relief the zone narrows and drifts up: a stubborn stretch that
+	# demands a firmer push, flirting with the red zone's noise and splash risk.
+	t.append(SimEvent.flow_zone(0.0, [Vector2(0.58, 0.72)], 1.5).on_relief(30.0))
 
-	# ~11s: a scripted pressure beat — a smell cloud craters Discretion, with a
-	# prompt so the player reads why. (Later this becomes a real Smell hazard.)
+	# A scripted smell beat, still on the clock — a reminder both families coexist.
 	t.append(SimEvent.prompt(11.0, "SMELL CLOUD", 2.0))
 	t.append(SimEvent.meter(11.0, SimState.Meter.DISCRETION, -22.0))
 
-	# ~17s: the zone shifts back down and widens — relief, and a chance to recover.
-	t.append(SimEvent.flow_zone(17.0, [Vector2(0.46, 0.70)], 2.0))
+	# A second, tighter knock (shorter telegraph, steeper cost) somewhere around
+	# the halfway mark — proof that multiple knocks per sit work, and that a
+	# hazard can be scheduled off progress.
+	t.append(SimEvent.knock(0.0, 1.0, 2.0, 45.0).on_relief(55.0).with_jitter(8.0))
 
-	# ~21s: a second, tighter Knock (shorter telegraph, steeper cost) — shows the
-	# same hazard scaling up, and that multiple knocks per sit are supported.
-	t.append(SimEvent.knock(21.0, 1.0, 2.0, 45.0))
+	# A breather: the zone widens and settles back down.
+	t.append(SimEvent.flow_zone(0.0, [Vector2(0.48, 0.70)], 2.0).on_relief(68.0))
+
+	# THE FINAL PUSH — at ~85% Relief the zone narrows hard for the last stretch,
+	# the deliberate "so close" spike.
+	t.append(SimEvent.prompt(0.0, "THE FINAL PUSH", 2.5).on_relief(85.0))
+	t.append(SimEvent.flow_zone(0.0, [Vector2(0.62, 0.74)], 1.0).on_relief(85.0))
 
 	return t

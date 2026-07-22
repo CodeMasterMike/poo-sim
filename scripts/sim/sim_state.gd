@@ -35,13 +35,18 @@ var splash_pulse: int = 0      ## increments on each splash — the view watches
 
 var phase: Phase = Phase.PLAYING
 
-# --- The Knock (hazard runtime). KnockHazard operates on these primitives so
-#     SimState stays pure data and never references the hazard class (no cycle). ---
-var knock_phase: int = 0        ## KnockHazard.Phase (0 = IDLE)
-var knock_timer: float = 0.0    ## seconds left in the current knock phase
-var knock_freeze_len: float = 0.0
-var knock_cost: float = 0.0     ## Discretion craters by this on a failed freeze
-var knock_failed: bool = false  ## did a push land during the freeze?
+# --- In-flight hazards. One generic slot type serves the whole catalog, so new
+#     hazards never add fields here. SimState references only HazardSlot (pure
+#     data), never the hazard operators — that keeps it acyclic. ---
+var hazards: Array[HazardSlot] = []
+
+## Bumped when a hazard retires — the view watches this (like splash_pulse) to
+## fire its pass/fail feedback without the sim holding view state.
+var hazard_resolve_pulse: int = 0
+var last_hazard_kind: int = 0
+var last_hazard_failed: bool = false
+var hazards_passed: int = 0
+var hazards_failed: int = 0
 
 # --- Scoring accumulators (read at end-of-run by Scoring) ---
 var composure_start: float = 100.0
