@@ -8,16 +8,17 @@ hazards that are actively trying to embarrass, expose, or defeat you.
 - **Platform:** Mobile (iOS + Android), portrait
 - **Model:** Premium — one flat purchase, no ads, no IAP
 
-> **Status:** Project scaffold only. The design is fully specced (`docs/specs/`), but no
-> gameplay is built yet. The next step is the grey-box **Push** prototype — see the roadmap
-> in [docs/specs/poo-sim-spec.md](docs/specs/poo-sim-spec.md) §14/§16.
+> **Status:** The grey-box **Push** prototype (roadmap step 1) is built and is the default
+> run scene — press Play to try it. The design is fully specced (`docs/specs/`); the next
+> milestone is the Vertical Slice — see [docs/specs/poo-sim-spec.md](docs/specs/poo-sim-spec.md) §14/§16.
 
 ## Getting started
 
 1. Install **Godot 4.7.x** (standard GDScript build — *not* the .NET/C# build; see the spec's
    "Why GDScript and not C#").
 2. Open the Godot project manager → **Import** → select this folder's `project.godot`.
-3. Press **Play** (F5). You'll see a placeholder screen — gameplay isn't built yet.
+3. Press **Play** (F5) to run the **Push** prototype: hold anywhere to raise the needle, keep
+   it in the green Flow Zone to fill **Relief** to 100%, and press **R** to retry.
 
 ## Project layout
 
