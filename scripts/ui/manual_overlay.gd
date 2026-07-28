@@ -161,9 +161,9 @@ func _panel_style() -> StyleBoxFlat:
 
 # ---------------------------------------------------------------- copy
 
-## Deadpan on purpose. Documents only what the prototype actually simulates today
-## (the Push, the four gauges, and the four live hazards); extend as the catalog
-## comes online.
+## Deadpan on purpose. Documents what the prototype actually simulates today (the
+## Push, the four gauges, and the live hazards — Knock, Jolt, Buzz, Smell Cloud, and
+## the Cover/Hush quiet-room mechanic); extend as the rest of the catalog comes online.
 func _manual_text() -> String:
 	# Copy below uses a compact [c=hex]…[/c] shorthand for readability; expand it to
 	# real BBCode color spans here in one pass.
@@ -187,7 +187,7 @@ func _manual_text() -> String:
 		_h("II.  THE FOUR GAUGES"),
 		"Every sitting is measured on four instruments. For all four, [b]fuller is better.[/b]\n",
 		_li("[c=%s]RELIEF[/c]" % HEX_FLOW,
-			"Your progress, and the win condition. Reach 100%% and you are free."),
+			"Your progress, and the win condition. Reach 100% and you are free."),
 		_li("[c=%s]COMPOSURE[/c]" % HEX_AMBER,
 			"Your clock and your nerve. It only ever falls. Empty it and you lose your composure entirely — a panic failure. It drains faster while you idle in the dead zone or strain in the red."),
 		_li("[c=%s]DISCRETION[/c]" % HEX_AMBER,
@@ -207,6 +207,8 @@ func _manual_text() -> String:
 			"Your phone. [b]Tap[/b] to dismiss it. Ignore it and it grows louder — a Discretion risk — while quietly draining your Composure. It is not important. Dismiss it."),
 		_li("[b]THE SMELL CLOUD[/b]",
 			"Not scheduled — earned, by pushing hard in the red. A visible cloud rises. [b]Swipe[/b] to waft it away before it is noticed. The real lesson is upstream: push greedy and you manufacture your own problems."),
+		_li("[b]COVER & HUSH[/b]",
+			("Some venues police every sound; watch the banner and match your Push to it. In the [b]Church[/b] the room is silent — wait for an organ swell ([c=%s]COVER[/c]) to bear down, and ride low through the [c=%s]SILENCE[/c] between. The [b]Rave[/b] inverts it: the [c=%s]BASS[/c] hides everything, so push freely until a [c=%s]HUSH[/c] falls and you are exposed. Same rule either way — [b]push while it is safe, ease off while exposed[/b]. Bearing down while exposed is heard, and Discretion bleeds fast." % [HEX_FLOW, HEX_RED, HEX_FLOW, HEX_RED])),
 		"\n",
 
 		_h("IV.  CONTROLS"),
@@ -214,6 +216,7 @@ func _manual_text() -> String:
 		_li("[b]Drag / Swipe[/b]", "Waft a cloud; re-center after a jolt."),
 		_li("[b]Tap[/b]", "Dismiss the phone."),
 		_li("[b]R[/b]", "Restart the sitting."),
+		_li("[b]1 / 2 / 3[/b]", "Switch venue: prototype · Church · Rave."),
 		_li("[b]H / Esc[/b]", "Open or close this manual."),
 		_li("[b]B[/b]", "Toggle the autopilot (demonstration only)."),
 		"\n",
