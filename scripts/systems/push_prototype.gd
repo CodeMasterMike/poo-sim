@@ -86,14 +86,19 @@ var _last_hazard_pulse: int = 0
 var _knock_flash: float = 0.0
 var _knock_flash_good: bool = false
 
-# --- The rules manual (pure view; pauses the sim while open) ---
+# --- Overlays (pure view; the sim pauses while either is open) ---
 var _manual: ManualOverlay
+var _picker: LevelPicker
 
 
 func _ready() -> void:
 	_reset()
 	_manual = ManualOverlay.new()
 	add_child(_manual)
+	_picker = LevelPicker.new()
+	add_child(_picker)
+	_picker.setup(_level_names(), _current_level_index())
+	_picker.level_chosen.connect(_on_level_chosen)
 	if auto_play:
 		_set_auto_play(true)
 
@@ -144,16 +149,20 @@ func _set_auto_play(enabled: bool) -> void:
 
 
 func _input(event: InputEvent) -> void:
-	# The manual owns input while it's up: H/Esc close it, everything else is
-	# swallowed so reading the rules can't accidentally push, tap, or retry.
+	# An open overlay (manual or level picker) owns input: H/Esc close it, everything
+	# else is swallowed so a menu tap can't leak into a push, tap, or retry.
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_H:
 			_manual.toggle()
 			return
-		if event.keycode == KEY_ESCAPE and _manual.is_open():
-			_manual.close()
-			return
-	if _manual.is_open():
+		if event.keycode == KEY_ESCAPE:
+			if _manual.is_open():
+				_manual.close()
+				return
+			if _picker.is_open():
+				_picker.close()
+				return
+	if _manual.is_open() or _picker.is_open():
 		return
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -183,14 +192,11 @@ func _input(event: InputEvent) -> void:
 		elif event.keycode == KEY_B and event.pressed:
 			_set_auto_play(not auto_play)
 		elif event.keycode == KEY_1 and event.pressed:
-			level_kind = LevelKind.GREYBOX
-			_reset()
+			_switch_level(LevelKind.GREYBOX)
 		elif event.keycode == KEY_2 and event.pressed:
-			level_kind = LevelKind.CHURCH
-			_reset()
+			_switch_level(LevelKind.CHURCH)
 		elif event.keycode == KEY_3 and event.pressed:
-			level_kind = LevelKind.RAVE
-			_reset()
+			_switch_level(LevelKind.RAVE)
 
 	# When the run is over, any fresh press retries.
 	if _state != null and _state.phase != SimState.Phase.PLAYING:
@@ -202,9 +208,9 @@ func _input(event: InputEvent) -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
-	# Reading the manual pauses the sitting — no clock drain, no hazards advancing.
+	# An open overlay pauses the sitting — no clock drain, no hazards advancing.
 	# (_accum only grows inside _advance_sim, so time can't pile up while paused.)
-	if _manual != null and _manual.is_open():
+	if (_manual != null and _manual.is_open()) or (_picker != null and _picker.is_open()):
 		return
 	_advance_sim(delta)
 
@@ -330,7 +336,8 @@ func _draw() -> void:
 	# Background (oversized so shake never reveals an edge).
 	draw_rect(Rect2(-40, -40, w + 80, h + 80), BG)
 
-	_text(font, "The Push — %s" % _level_name(), 0, int(h * 0.045), w, int(h * 0.026), TEXT)
+	# The venue name lives in the LEVEL button (top-left); keep the title clean.
+	_text(font, "The Push", 0, int(h * 0.045), w, int(h * 0.026), TEXT)
 
 	_draw_meters_top(font, w, h)
 	_draw_quiet_status(font, w, h)
@@ -399,14 +406,41 @@ func h_gap() -> float:
 	return get_viewport_rect().size.y * 0.006
 
 
-func _level_name() -> String:
-	match level_kind:
+func _level_display_name(kind: int) -> String:
+	match kind:
 		LevelKind.CHURCH:
 			return "Church"
 		LevelKind.RAVE:
 			return "Rave"
 		_:
-			return "prototype"
+			return "Prototype"
+
+
+## The venue roster, in enum order — what the picker renders. Data-driven off
+## LevelKind, so a new level appears in the picker with no change here.
+func _level_names() -> PackedStringArray:
+	var names := PackedStringArray()
+	for kind in LevelKind.values():
+		names.append(_level_display_name(kind))
+	return names
+
+
+func _current_level_index() -> int:
+	return LevelKind.values().find(level_kind)
+
+
+## Switch venue and restart, keeping the picker button/highlight in sync. The one
+## path used by both the 1/2/3 keys and a picker tap.
+func _switch_level(kind: int) -> void:
+	level_kind = kind
+	_reset()
+	if _picker != null:
+		_picker.set_current(_current_level_index())
+
+
+func _on_level_chosen(index: int) -> void:
+	_manual.close()
+	_switch_level(LevelKind.values()[index])
 
 
 func _is_quiet_room() -> bool:
