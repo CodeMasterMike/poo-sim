@@ -13,9 +13,9 @@ extends RefCounted
 ## The Kind enum reserves hazard slots now, before their handlers exist, so
 ## serialized levels and ghosts stay forward-compatible.
 
-## SMELL is appended rather than slotted in, so the existing ordinals stay put and
-## any serialized level/ghost keeps meaning what it meant.
-enum Kind { FLOW_ZONE, METER, PROMPT, KNOCK, JOLT, BUZZ, SMELL }
+## New kinds are APPENDED (SMELL, then COVER), never slotted in, so existing
+## ordinals stay put and any serialized level/ghost keeps meaning what it meant.
+enum Kind { FLOW_ZONE, METER, PROMPT, KNOCK, JOLT, BUZZ, SMELL, COVER }
 
 ## What makes the event fire. TIME is the clock; RELIEF paces the beat off the
 ## player's actual progress, which is what the spec's three-act micro-curve wants
@@ -103,6 +103,15 @@ static func buzz(t: float, telegraph: float, window: float, discretion_cost: flo
 	return SimEvent.new(t, Kind.BUZZ, BuzzPayload.new(telegraph, window, discretion_cost, composure_drain))
 
 
+## A Cover Window is the Church's signature: a burst of ambient noise (an organ
+## swell, a hymn) during which pushing is safe. It is the SUPPRESSOR of a
+## persistent penalty, not a penalty itself — between windows the room is silent
+## and pushing above the level's silence cap is audible (see PushSim). `telegraph`
+## is the cover building in (audible play not yet safe); `duration` is the window.
+static func cover(t: float, telegraph: float, duration: float) -> SimEvent:
+	return SimEvent.new(t, Kind.COVER, CoverPayload.new(telegraph, duration))
+
+
 # --- Typed payloads (inner classes: referenced as SimEvent.FlowZonePayload etc.) ---
 
 class FlowZonePayload extends RefCounted:
@@ -171,3 +180,11 @@ class BuzzPayload extends RefCounted:
 		window = wn
 		discretion_cost = dc
 		composure_drain = cd
+
+
+class CoverPayload extends RefCounted:
+	var telegraph: float   ## the cover building in — audible play NOT yet safe
+	var duration: float    ## how long the safe window lasts once it arrives
+	func _init(tg: float, dur: float) -> void:
+		telegraph = tg
+		duration = dur

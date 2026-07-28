@@ -55,6 +55,18 @@ extends Resource
 @export var smell_rate: float = 0.35           ## Discretion lost per second (ambient smell)
 @export var detect_threshold: float = 35.0     ## Discretion below this = a detection event
 
+# --- Quiet-room silence penalty (Church cover-window levels; 0 disables) ---
+## In a "quiet room", actively bearing down (holding) with the needle above
+## `silence_push_cap` while no Cover Window is active is audible: Discretion bleeds
+## at this rate (per second). Coasting back down after you release is free — cover
+## windows don't telegraph their end. 0 = not a quiet room (every non-Church
+## level), so the penalty is a no-op there.
+@export var silence_noise_rate: float = 0.0
+## The needle level above which you're audible in silence. Defaults to the Flow
+## floor so that in silence you can idle low but a real (flow-level) push is heard —
+## the whole point of the Church is that you push only under cover.
+@export var silence_push_cap: float = 0.5
+
 # --- Smell Cloud (emergent hazard; emitted by hard pushing, not scheduled) ---
 ## At 0.5/s a cloud forms after ~2s in the red — roughly in step with the splash
 ## threshold, so a brief dip stays free but committing to the red line produces

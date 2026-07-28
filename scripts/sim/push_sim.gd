@@ -105,6 +105,15 @@ func tick(state: SimState, intent: PlayerIntent, clock: SimClock, level: LevelDe
 	var disc_loss := level.smell_rate * dt
 	if zone == ZONE_RED:
 		disc_loss += level.red_noise_rate * dt
+	# Quiet-room silence penalty (the Church): with no Cover Window active, actively
+	# bearing down above the silence cap is audible and bleeds Discretion. Gated on
+	# `holding` (not just needle position) on purpose — cover windows telegraph their
+	# start but not their end, so the needle coasting back down after you RELEASE
+	# must be free, or you'd be punished for a fall you couldn't anticipate. Gated by
+	# silence_noise_rate so every non-quiet level (rate 0) is untouched.
+	if level.silence_noise_rate > 0.0 and intent.holding \
+			and state.needle > level.silence_push_cap and not Hazards.under_cover(state):
+		disc_loss += level.silence_noise_rate * dt
 	state.discretion = clampf(state.discretion - disc_loss, 0.0, 100.0)
 	_track_detection(state, level)
 

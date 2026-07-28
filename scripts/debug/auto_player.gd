@@ -54,4 +54,10 @@ func _process(_delta: float) -> void:
 
 	var band: Vector2 = st.flow_bands[0]
 	var target: float = (band.x + band.y) * 0.5 + aim_bias
+	# In a quiet room (the Church), pushing above the silence cap while uncovered is
+	# audible — so in the hush, hover just below the cap and only push into Flow once
+	# cover is up. Lets a bot run actually measure whether the Church is winnable.
+	var level: LevelDef = sit.current_level() if sit.has_method("current_level") else null
+	if level != null and level.silence_noise_rate > 0.0 and not Hazards.under_cover(st):
+		target = maxf(0.0, level.silence_push_cap - 0.06)
 	sit.set_auto_hold(st.needle < target)

@@ -28,3 +28,8 @@ var stalls_relief: bool = false  ## while ACTIVE, does this hazard freeze The Pu
 ## an instant fail with no window at all. Tighten it in later worlds (the
 ## difficulty curve wants generous windows early, tight ones late).
 var grace: float = 0.0
+## Does resolving this slot count as a passed/failed reaction (and fire the
+## resolution pulse the view flashes on)? Reaction hazards leave this true.
+## Constraint windows like the Cover Window set it false — a hymn ending is not
+## something the player passes or fails, so the slot retires quietly.
+var scored: bool = true

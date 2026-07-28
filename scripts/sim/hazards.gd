@@ -21,6 +21,8 @@ static func start(state: SimState, kind: int, payload: RefCounted, clock: SimClo
 			JoltHazard.start(state, payload as SimEvent.JoltPayload, clock)
 		SimEvent.Kind.BUZZ:
 			BuzzHazard.start(state, payload as SimEvent.BuzzPayload, clock)
+		SimEvent.Kind.COVER:
+			CoverWindowHazard.start(state, payload as SimEvent.CoverPayload)
 		_:
 			pass  # the rest of the catalog: slots reserved, no operators yet
 
@@ -40,6 +42,8 @@ static func tick(state: SimState, intent: PlayerIntent, level: LevelDef, clock: 
 				JoltHazard.tick(state, slot, intent, level, clock, dt)
 			SimEvent.Kind.BUZZ:
 				BuzzHazard.tick(state, slot, intent, level, clock, dt)
+			SimEvent.Kind.COVER:
+				CoverWindowHazard.tick(slot, dt)
 			_:
 				pass
 	_sweep(state)
@@ -52,6 +56,10 @@ static func _sweep(state: SimState) -> void:
 	for slot in state.hazards:
 		if slot.phase != HazardSlot.Phase.RESOLVED:
 			keep.append(slot)
+			continue
+		# Constraint windows (the Cover Window) retire quietly — resolving one isn't
+		# a pass/fail reaction, so it neither pulses the view nor moves the tallies.
+		if not slot.scored:
 			continue
 		state.hazard_resolve_pulse += 1
 		state.last_hazard_kind = slot.kind
@@ -67,6 +75,17 @@ static func _sweep(state: SimState) -> void:
 static func relief_stalled(state: SimState) -> bool:
 	for slot in state.hazards:
 		if slot.stalls_relief and slot.phase == HazardSlot.Phase.ACTIVE:
+			return true
+	return false
+
+
+## True while any Cover Window is ACTIVE — the Church's ambient-noise stretches,
+## during which the silence penalty is lifted. Derived from the hazard list rather
+## than a stored flag, so overlapping windows and same-step resolution can't
+## desync it (whoever's active this step wins; none active = silence).
+static func under_cover(state: SimState) -> bool:
+	for slot in state.hazards:
+		if slot.kind == SimEvent.Kind.COVER and slot.phase == HazardSlot.Phase.ACTIVE:
 			return true
 	return false
 

@@ -16,6 +16,12 @@ extends Control
 ## Resource with @export fields. Leave `tuning_override` empty to use its
 ## defaults — the same values the test suites read — or assign a .tres to
 ## experiment without editing code.
+## Which level content to run. GREYBOX proves the machinery (the tuning-override
+## path); CHURCH is the first real cover-window level (a full LevelDef factory).
+## Switch at runtime with the 1 / 2 keys.
+enum LevelKind { GREYBOX, CHURCH }
+@export var level_kind: LevelKind = LevelKind.GREYBOX
+
 @export var tuning_override: LevelDef
 
 ## The per-match seed. Everything random — currently the jitter on when hazards
@@ -102,6 +108,12 @@ func sim_state() -> SimState:
 	return _state
 
 
+## Read-only access to the active level, for the debug auto-player (it needs the
+## silence tuning to play a quiet room). Never mutated from outside the sim.
+func current_level() -> LevelDef:
+	return _level
+
+
 ## Input hook for the debug auto-player — deliberately routed through the same
 ## intent path as a human hold, so a bot run is a real run.
 func set_auto_hold(value: bool) -> void:
@@ -170,6 +182,12 @@ func _input(event: InputEvent) -> void:
 			_reset()
 		elif event.keycode == KEY_B and event.pressed:
 			_set_auto_play(not auto_play)
+		elif event.keycode == KEY_1 and event.pressed:
+			level_kind = LevelKind.GREYBOX
+			_reset()
+		elif event.keycode == KEY_2 and event.pressed:
+			level_kind = LevelKind.CHURCH
+			_reset()
 
 	# When the run is over, any fresh press retries.
 	if _state != null and _state.phase != SimState.Phase.PLAYING:
@@ -251,10 +269,15 @@ func _drain_intent() -> PlayerIntent:
 
 
 func _build_level() -> LevelDef:
-	# duplicate() so a shared .tres override is never mutated by the timeline.
-	var level: LevelDef = tuning_override.duplicate() if tuning_override != null else LevelDef.new()
-	level.timeline = LevelGreybox.timeline()
-	return level
+	match level_kind:
+		LevelKind.CHURCH:
+			# A full factory: church tuning + its own cover-window timeline.
+			return LevelChurch.build()
+		_:
+			# duplicate() so a shared .tres override is never mutated by the timeline.
+			var level: LevelDef = tuning_override.duplicate() if tuning_override != null else LevelDef.new()
+			level.timeline = LevelGreybox.timeline()
+			return level
 
 
 func _reset() -> void:
@@ -301,9 +324,10 @@ func _draw() -> void:
 	# Background (oversized so shake never reveals an edge).
 	draw_rect(Rect2(-40, -40, w + 80, h + 80), BG)
 
-	_text(font, "The Push — prototype", 0, int(h * 0.045), w, int(h * 0.026), TEXT)
+	_text(font, "The Push — %s" % _level_name(), 0, int(h * 0.045), w, int(h * 0.026), TEXT)
 
 	_draw_meters_top(font, w, h)
+	_draw_quiet_status(font, w, h)
 	_draw_gauge(font, w, h)
 	_draw_relief(font, w, h)
 	_draw_smell(w, h)
@@ -314,7 +338,7 @@ func _draw() -> void:
 	var fr := _state.flow_ratio()
 	_text(font, "Flow %d%%   ·   %.1fs" % [int(round(fr * 100.0)), _clock.elapsed],
 			0, int(h * 0.88), w, int(h * 0.022), TEXT_DIM)
-	_text(font, "HOLD to push  ·  release to relax  ·  R restart  ·  H manual  ·  B autoplay",
+	_text(font, "HOLD push  ·  release relax  ·  R restart  ·  1/2 level  ·  H manual  ·  B autoplay",
 			0, int(h * 0.93), w, int(h * 0.018), TEXT_DIM)
 	if auto_play:
 		_text(font, "· AUTOPLAY ·", 0, int(h * 0.85), w, int(h * 0.020), GOAL)
@@ -369,6 +393,42 @@ func h_gap() -> float:
 	return get_viewport_rect().size.y * 0.006
 
 
+func _level_name() -> String:
+	match level_kind:
+		LevelKind.CHURCH:
+			return "Church"
+		_:
+			return "prototype"
+
+
+func _is_quiet_room() -> bool:
+	return _level != null and _level.silence_noise_rate > 0.0
+
+
+## The Church's core read: is there cover right now, or is the room silent? Drawn
+## only in a quiet room; ordinary levels never show it.
+func _draw_quiet_status(font: Font, w: float, h: float) -> void:
+	if not _is_quiet_room() or _state.phase != SimState.Phase.PLAYING:
+		return
+	var covered := Hazards.under_cover(_state)
+	var cover_slot := Hazards.find(_state, SimEvent.Kind.COVER)
+	var incoming: bool = cover_slot != null and cover_slot.phase == HazardSlot.Phase.TELEGRAPH
+	var col := RED
+	var label := "SILENCE  —  ease off"
+	if covered:
+		col = FLOW
+		label = "COVER  —  PUSH NOW"
+	elif incoming:
+		col = AMBER
+		label = "the organ swells  —  GET READY"
+	var by := h * 0.165
+	var bh := h * 0.032
+	var bar := col
+	bar.a = 0.92
+	draw_rect(Rect2(w * 0.06, by, w * 0.88, bh), bar)
+	_text(font, label, 0, int(by + bh * 0.70), w, int(h * 0.020), Color(0.08, 0.07, 0.05))
+
+
 func _draw_gauge(font: Font, w: float, h: float) -> void:
 	var gx := w * 0.20
 	var gw := w * 0.26
@@ -404,6 +464,15 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 	glow_col.a = 0.35
 	draw_rect(Rect2(gx - gw * 0.16, ny - 14, gw * 1.32, 28), glow_col)
 	draw_rect(Rect2(gx - gw * 0.08, ny - 6, gw * 1.16, 12), NEEDLE)
+
+	# Quiet room, no cover: everything above the silence cap is audible — mark that
+	# region so the player can see exactly how low they must ride out the hush.
+	if _is_quiet_room() and not Hazards.under_cover(_state):
+		var y_cap := gbot - _level.silence_push_cap * gh
+		var warn := RED
+		warn.a = 0.14
+		draw_rect(Rect2(gx, gy, gw, y_cap - gy), warn)
+		draw_line(Vector2(gx, y_cap), Vector2(gx + gw, y_cap), RED, 2.0)
 
 	# During a Knock freeze, frost the gauge and flip the demand to RELEASE (UI spec).
 	if Hazards.relief_stalled(_state):
