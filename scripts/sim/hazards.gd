@@ -79,15 +79,24 @@ static func relief_stalled(state: SimState) -> bool:
 	return false
 
 
-## True while any Cover Window is ACTIVE — the Church's ambient-noise stretches,
-## during which the silence penalty is lifted. Derived from the hazard list rather
-## than a stored flag, so overlapping windows and same-step resolution can't
-## desync it (whoever's active this step wins; none active = silence).
-static func under_cover(state: SimState) -> bool:
+## True while any acoustic window (COVER slot) is ACTIVE — the Church's organ
+## swells, the Rave's hushes. It's a neutral "the soundscape has flipped from
+## baseline" signal; whether that helps or hurts is the level's call (room_exposed).
+## Derived from the hazard list rather than a stored flag, so overlapping windows
+## and same-step resolution can't desync it.
+static func acoustic_window_active(state: SimState) -> bool:
 	for slot in state.hazards:
 		if slot.kind == SimEvent.Kind.COVER and slot.phase == HazardSlot.Phase.ACTIVE:
 			return true
 	return false
+
+
+## Is the room audible RIGHT NOW, in a quiet-room level? The baseline is exposed or
+## covered per the level; an active acoustic window flips it. Church (exposed
+## baseline): exposed until an organ swell covers you. Rave (covered baseline):
+## covered until a hush exposes you. This one call serves both polarities.
+static func room_exposed(state: SimState, level: LevelDef) -> bool:
+	return level.baseline_exposed != acoustic_window_active(state)
 
 
 ## The first in-flight slot of a kind, or null. Used by the view for prompts.

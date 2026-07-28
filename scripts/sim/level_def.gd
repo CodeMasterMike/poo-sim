@@ -66,6 +66,11 @@ extends Resource
 ## floor so that in silence you can idle low but a real (flow-level) push is heard —
 ## the whole point of the Church is that you push only under cover.
 @export var silence_push_cap: float = 0.5
+## Is the room audible (exposed) by default? An acoustic window (COVER slot) FLIPS
+## this for its duration. Church = true: exposed by default, a cover window shields
+## you. Rave = false: covered by default (the bass), a hush window exposes you. So
+## the same window machinery drives both polarities — see Hazards.room_exposed.
+@export var baseline_exposed: bool = true
 
 # --- Smell Cloud (emergent hazard; emitted by hard pushing, not scheduled) ---
 ## At 0.5/s a cloud forms after ~2s in the red — roughly in step with the splash

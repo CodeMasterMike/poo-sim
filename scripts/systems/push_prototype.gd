@@ -17,9 +17,9 @@ extends Control
 ## defaults — the same values the test suites read — or assign a .tres to
 ## experiment without editing code.
 ## Which level content to run. GREYBOX proves the machinery (the tuning-override
-## path); CHURCH is the first real cover-window level (a full LevelDef factory).
-## Switch at runtime with the 1 / 2 keys.
-enum LevelKind { GREYBOX, CHURCH }
+## path); CHURCH and RAVE are the two cover-window levels (full LevelDef factories,
+## same system at opposite polarity). Switch at runtime with the 1 / 2 / 3 keys.
+enum LevelKind { GREYBOX, CHURCH, RAVE }
 @export var level_kind: LevelKind = LevelKind.GREYBOX
 
 @export var tuning_override: LevelDef
@@ -188,6 +188,9 @@ func _input(event: InputEvent) -> void:
 		elif event.keycode == KEY_2 and event.pressed:
 			level_kind = LevelKind.CHURCH
 			_reset()
+		elif event.keycode == KEY_3 and event.pressed:
+			level_kind = LevelKind.RAVE
+			_reset()
 
 	# When the run is over, any fresh press retries.
 	if _state != null and _state.phase != SimState.Phase.PLAYING:
@@ -273,6 +276,9 @@ func _build_level() -> LevelDef:
 		LevelKind.CHURCH:
 			# A full factory: church tuning + its own cover-window timeline.
 			return LevelChurch.build()
+		LevelKind.RAVE:
+			# The Church's inverse — covered by default, hushes expose you.
+			return LevelRave.build()
 		_:
 			# duplicate() so a shared .tres override is never mutated by the timeline.
 			var level: LevelDef = tuning_override.duplicate() if tuning_override != null else LevelDef.new()
@@ -338,7 +344,7 @@ func _draw() -> void:
 	var fr := _state.flow_ratio()
 	_text(font, "Flow %d%%   ·   %.1fs" % [int(round(fr * 100.0)), _clock.elapsed],
 			0, int(h * 0.88), w, int(h * 0.022), TEXT_DIM)
-	_text(font, "HOLD push  ·  release relax  ·  R restart  ·  1/2 level  ·  H manual  ·  B autoplay",
+	_text(font, "HOLD push  ·  release relax  ·  R restart  ·  1/2/3 level  ·  H manual  ·  B autoplay",
 			0, int(h * 0.93), w, int(h * 0.018), TEXT_DIM)
 	if auto_play:
 		_text(font, "· AUTOPLAY ·", 0, int(h * 0.85), w, int(h * 0.020), GOAL)
@@ -397,6 +403,8 @@ func _level_name() -> String:
 	match level_kind:
 		LevelKind.CHURCH:
 			return "Church"
+		LevelKind.RAVE:
+			return "Rave"
 		_:
 			return "prototype"
 
@@ -405,22 +413,31 @@ func _is_quiet_room() -> bool:
 	return _level != null and _level.silence_noise_rate > 0.0
 
 
-## The Church's core read: is there cover right now, or is the room silent? Drawn
-## only in a quiet room; ordinary levels never show it.
+## The core read of a quiet-room level: is it safe to push right now, and is a
+## soundscape change coming? Polarity-aware — the Church waits for cover, the Rave
+## dreads the hush — but the three states (heads-up / danger / safe) are shared.
+## Drawn only in a quiet room; ordinary levels never show it.
 func _draw_quiet_status(font: Font, w: float, h: float) -> void:
 	if not _is_quiet_room() or _state.phase != SimState.Phase.PLAYING:
 		return
-	var covered := Hazards.under_cover(_state)
-	var cover_slot := Hazards.find(_state, SimEvent.Kind.COVER)
-	var incoming: bool = cover_slot != null and cover_slot.phase == HazardSlot.Phase.TELEGRAPH
-	var col := RED
-	var label := "SILENCE  —  ease off"
-	if covered:
-		col = FLOW
-		label = "COVER  —  PUSH NOW"
-	elif incoming:
+	var exposed := Hazards.room_exposed(_state, _level)
+	var slot := Hazards.find(_state, SimEvent.Kind.COVER)
+	var incoming: bool = slot != null and slot.phase == HazardSlot.Phase.TELEGRAPH
+	var church := _level.baseline_exposed
+
+	var col := FLOW
+	var label := "BASS  —  PUSH FREELY"
+	if incoming:
+		# A window is telegraphing: cover incoming (Church) or a hush incoming (Rave).
 		col = AMBER
-		label = "the organ swells  —  GET READY"
+		label = "the organ swells  —  GET READY" if church else "the drop's coming  —  EASE OFF SOON"
+	elif exposed:
+		col = RED
+		label = "SILENCE  —  ease off" if church else "HUSH  —  they can hear you!"
+	else:
+		col = FLOW
+		label = "COVER  —  PUSH NOW" if church else "BASS  —  PUSH FREELY"
+
 	var by := h * 0.165
 	var bh := h * 0.032
 	var bar := col
@@ -465,9 +482,9 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 	draw_rect(Rect2(gx - gw * 0.16, ny - 14, gw * 1.32, 28), glow_col)
 	draw_rect(Rect2(gx - gw * 0.08, ny - 6, gw * 1.16, 12), NEEDLE)
 
-	# Quiet room, no cover: everything above the silence cap is audible — mark that
-	# region so the player can see exactly how low they must ride out the hush.
-	if _is_quiet_room() and not Hazards.under_cover(_state):
+	# Quiet room, currently exposed: everything above the silence cap is audible —
+	# mark that region so the player sees exactly how low they must ride it out.
+	if _is_quiet_room() and Hazards.room_exposed(_state, _level):
 		var y_cap := gbot - _level.silence_push_cap * gh
 		var warn := RED
 		warn.a = 0.14
