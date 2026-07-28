@@ -177,6 +177,8 @@ Each environment is a themed world with 3–5 levels of escalating difficulty. L
 
 **Selection principle:** the best new environments **change a rule**, they don't just change the wallpaper. Medieval castle and space station earn their place because they break assumptions the player has internalized about how a toilet works — that's a fresh hazard set, not a reskin. An environment that only swaps the background art is a cosmetic, not a level.
 
+> **See the [Environment Backlog](poo-sim-environments.md)** for the expanded menu — each backlog venue written up as the single *rule it breaks* (cover-noise windows, zero-G physics, meter coupling, sensor auto-flush), with build cost and hazard reuse.
+
 ---
 
 ## 10. Progression & Meta
