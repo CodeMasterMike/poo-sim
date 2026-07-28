@@ -80,9 +80,14 @@ var _last_hazard_pulse: int = 0
 var _knock_flash: float = 0.0
 var _knock_flash_good: bool = false
 
+# --- The rules manual (pure view; pauses the sim while open) ---
+var _manual: ManualOverlay
+
 
 func _ready() -> void:
 	_reset()
+	_manual = ManualOverlay.new()
+	add_child(_manual)
 	if auto_play:
 		_set_auto_play(true)
 
@@ -127,6 +132,18 @@ func _set_auto_play(enabled: bool) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	# The manual owns input while it's up: H/Esc close it, everything else is
+	# swallowed so reading the rules can't accidentally push, tap, or retry.
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_H:
+			_manual.toggle()
+			return
+		if event.keycode == KEY_ESCAPE and _manual.is_open():
+			_manual.close()
+			return
+	if _manual.is_open():
+		return
+
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		_mouse_down = event.pressed
 		if event.pressed:
@@ -164,6 +181,10 @@ func _input(event: InputEvent) -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
+	# Reading the manual pauses the sitting — no clock drain, no hazards advancing.
+	# (_accum only grows inside _advance_sim, so time can't pile up while paused.)
+	if _manual != null and _manual.is_open():
+		return
 	_advance_sim(delta)
 
 	# View feedback, driven by (never driving) the model.
@@ -293,7 +314,7 @@ func _draw() -> void:
 	var fr := _state.flow_ratio()
 	_text(font, "Flow %d%%   ·   %.1fs" % [int(round(fr * 100.0)), _clock.elapsed],
 			0, int(h * 0.88), w, int(h * 0.022), TEXT_DIM)
-	_text(font, "HOLD to push  ·  release to relax  ·  R restart  ·  B autoplay",
+	_text(font, "HOLD to push  ·  release to relax  ·  R restart  ·  H manual  ·  B autoplay",
 			0, int(h * 0.93), w, int(h * 0.018), TEXT_DIM)
 	if auto_play:
 		_text(font, "· AUTOPLAY ·", 0, int(h * 0.85), w, int(h * 0.020), GOAL)
