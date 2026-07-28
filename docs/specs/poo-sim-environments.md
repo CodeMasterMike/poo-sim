@@ -147,7 +147,7 @@ Everything else is 🟢 reskins/variants we can slot in once the core hazard set
 
 ## Notes for the other docs
 
-- Several entries imply **new hazards not yet in the [Hazard Catalog](poo-sim-hazard-catalog.md)**: Cover Window, Sensor Flush, line-of-sight exposure, the Composure↔Discretion coupling, delayed Smell. When one gets greenlit, add it to the catalog in the catalog's entry shape (it already lists **The Peeker**, **The Draft**, **The Floater**, **Weak Flush** as backlog hazards).
+- Several entries imply **new hazards not yet in the [Hazard Catalog](poo-sim-hazard-catalog.md)**: Sensor Flush, line-of-sight exposure, the Composure↔Discretion coupling, delayed Smell. When one gets greenlit, add it to the catalog in the catalog's entry shape (it already lists **The Peeker**, **The Draft**, **The Floater**, **Weak Flush** as backlog hazards). The **Cover Window / Hush** has since been greenlit, built, and cataloged — the model for that promotion.
 - New environments still obey the **Complexity Budget** (spec §2): no new meters, one decision at a time, explainable in a sentence.
 - Determinism/hazards-as-sabotage rules still apply — any new system fires from a seeded **event**, never a hardcoded timer (spec §17).
 

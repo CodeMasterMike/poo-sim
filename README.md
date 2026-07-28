@@ -54,7 +54,7 @@ The design is spread across six cross-referenced specs, all in [`docs/specs/`](d
 |---|---|
 | [poo-sim-spec.md](docs/specs/poo-sim-spec.md) | Master design spec — pillars, loop, meters, roadmap, MVP |
 | [poo-sim-ui-spec.md](docs/specs/poo-sim-ui-spec.md) | Seated-screen layout & ergonomics |
-| [poo-sim-hazard-catalog.md](docs/specs/poo-sim-hazard-catalog.md) | All 14 hazards, types, and the environment matrix |
+| [poo-sim-hazard-catalog.md](docs/specs/poo-sim-hazard-catalog.md) | All 15 hazards, types, and the environment matrix |
 | [poo-sim-difficulty-curve.md](docs/specs/poo-sim-difficulty-curve.md) | The 20-level curriculum and star gates |
 | [poo-sim-environments.md](docs/specs/poo-sim-environments.md) | Environment backlog — the rule each venue breaks |
 | [poo-sim-scoring.md](docs/specs/poo-sim-scoring.md) | Scoring math, star thresholds, results choreography |

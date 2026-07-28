@@ -99,6 +99,21 @@ Grouped by the meter each hazard threatens.
 - **Scales by:** Faster drift; gusts of wind that snap it open suddenly.
 - **Homes:** Festival Porta-Potty **(S)**.
 
+### Cover Window / The Hush — *Sustained Constraint*
+> Dead silence — then the organ swells, and for a few bars you can do anything. (The Rave flips it: the bass hides everything, until the drop.)
+- **Threatens:** Discretion (noise)
+- **Trigger:** Environmental and rhythmic. The room has a baseline audibility that a periodic **acoustic window** flips — an organ swell in the Church, a between-songs **hush** in the Rave. The window's start is telegraphed (it builds in); its *end*, deliberately, is not.
+- **Reaction:** Match The Push to the soundscape — **bear down while it's safe, ease below the cap while you're exposed.** The Push becomes a timing game keyed to the ambient sound.
+- **Success:** Bank Relief in the safe stretches, ride low through the exposed ones; Discretion holds.
+- **Failure:** Bear down while exposed and you're audible — Discretion bleeds fast, and camping it gets you caught.
+- **Cost:** Safe-versus-exposed trades Relief speed for silence the whole sit; you can never just clamp the button.
+- **Scales by:** Rarer or shorter safe windows; longer exposed stretches; less telegraph; a tighter safe cap.
+- **Polarity — one mechanic, two feels:** the **Church** is exposed by default, so windows *shield* you (you wait for cover). The **Rave** is covered by default, so windows *expose* you (you dread the hush). Same code path; a single `baseline_exposed` bit flips it.
+- **As sabotage:** dropping a sudden **Hush** on a rival mid-race is a clean attack — no new payload, just a window sent to their board.
+- **Homes:** Church **(S)**, Rave **(S, inverted)**.
+
+*Implemented — the first catalog hazard shipped as playable levels (the Church and the Rave), built on a `silence_noise_rate` / `silence_push_cap` penalty that bites only while the room is exposed.*
+
 ---
 
 ## Cleanliness hazards *(mess, clogs, splash)*
@@ -255,6 +270,8 @@ A clean difficulty curve teaches one hazard in isolation, then starts combining.
 | Slippery Grip | **(S)** | | | |
 
 Every environment has 3+ signatures plus a share of the four universals (Splashback, The Buzz, Dead Leg, The Waiter). Signatures are what a player remembers; universals are the connective tissue.
+
+**The Cover Window / Hush isn't in the grid above.** Its homes — the **Church** and the **Rave** — are backlog environments (see the [Environment Backlog](poo-sim-environments.md)), not the launch four, so they have no columns here. It's the signature of both, at opposite polarity, and it's the one hazard on this page that's already built.
 
 ---
 

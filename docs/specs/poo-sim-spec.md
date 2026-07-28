@@ -131,7 +131,7 @@ Hazards are timed interrupt events layered on top of The Push. They demand a qui
 
 Each environment ships with 2–3 signature hazards; difficulty scales by stacking and speeding them up.
 
-> **See the companion [Hazard Catalog](poo-sim-hazard-catalog.md)** for the full set (14 hazards), each with trigger, reaction, meter effects, scaling, and an environment matrix.
+> **See the companion [Hazard Catalog](poo-sim-hazard-catalog.md)** for the full set (15 hazards), each with trigger, reaction, meter effects, scaling, and an environment matrix.
 
 ---
 
@@ -298,7 +298,7 @@ Launch is single-player. But The Push is, underneath, a **race** — "first to f
 
 ### Hazards as sabotage
 
-The [Hazard Catalog](poo-sim-hazard-catalog.md) is designed to double as a **1v1 attack deck**: land a clean stretch of Push and you *send* a hazard — a Knock, a Jolt, a Smell Cloud — to your rival's gauge. Fourteen solo annoyances become a combat system for near-free. Still bound by the Complexity Budget: **one decision at a time** — sabotage garnishes the race, it doesn't turn it into a management sim.
+The [Hazard Catalog](poo-sim-hazard-catalog.md) is designed to double as a **1v1 attack deck**: land a clean stretch of Push and you *send* a hazard — a Knock, a Jolt, a Smell Cloud — to your rival's gauge. Fifteen solo annoyances become a combat system for near-free. Still bound by the Complexity Budget: **one decision at a time** — sabotage garnishes the race, it doesn't turn it into a management sim.
 
 ### Fairness by construction
 
