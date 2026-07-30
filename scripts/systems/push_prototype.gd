@@ -335,8 +335,7 @@ func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	draw_set_transform(_shake, 0.0, Vector2.ONE)
 
-	# Background (oversized so shake never reveals an edge).
-	draw_rect(Rect2(-40, -40, w + 80, h + 80), BG)
+	_draw_backdrop(w, h)
 
 	# The venue name lives in the LEVEL button (top-left); keep the title clean.
 	_text(font, "The Push", 0, int(h * 0.045), w, int(h * 0.026), TEXT)
@@ -377,6 +376,31 @@ func _draw() -> void:
 	_draw_overlay(font, w, h)
 
 
+## The room behind the HUD: a vertical wash, a faked vignette, and a floor line.
+## Oversized on every side so the splash/jolt shake can never reveal an edge.
+func _draw_backdrop(w: float, h: float) -> void:
+	var full := Rect2(-40, -40, w + 80, h + 80)
+	_vgrad(full, BG.lightened(0.07), BG.darkened(0.30))
+
+	# Vignette. Draw calls have no blur, so stack thin translucent frames that
+	# fade as they march inward. Keep the per-step alpha low and the steps many,
+	# or the falloff shows its seams.
+	var steps := 16
+	var bw := h * 0.016
+	for i in steps:
+		var inset := float(i) * bw + bw * 0.5
+		var frame := Rect2(full.position.x + inset, full.position.y + inset,
+				full.size.x - inset * 2.0, full.size.y - inset * 2.0)
+		var fade := 1.0 - float(i) / float(steps - 1)
+		draw_rect(frame, Color(0.0, 0.0, 0.0, 0.045 * fade * fade), false, bw)
+
+	# Just enough floor to stop the HUD floating in a void. Two passes, the
+	# bright one held off the screen edges so it reads as a floor, not a seam.
+	var fy := h * 0.80
+	draw_line(Vector2(0.0, fy), Vector2(w, fy), Color(0.16, 0.19, 0.25, 0.30), 2.0)
+	draw_line(Vector2(w * 0.14, fy), Vector2(w * 0.86, fy), Color(0.20, 0.24, 0.31, 0.55), 2.0)
+
+
 func _draw_meters_top(font: Font, w: float, h: float) -> void:
 	var mx := w * 0.06
 	var mw := w * 0.88
@@ -385,9 +409,7 @@ func _draw_meters_top(font: Font, w: float, h: float) -> void:
 	_text(font, "COMPOSURE", mx, int(h * 0.072), mw, int(h * 0.016), TEXT_DIM)
 	var cy := h * 0.082
 	var ch := h * 0.024
-	draw_rect(Rect2(mx, cy, mw, ch), PANEL)
-	draw_rect(Rect2(mx, cy, mw * (_state.composure / 100.0), ch), _meter_color(_state.composure))
-	draw_rect(Rect2(mx, cy, mw, ch), TEXT_DIM, false, 2.0)
+	_track(Rect2(mx, cy, mw, ch), _state.composure / 100.0, _meter_color(_state.composure))
 
 	# Discretion + Cleanliness pills, side by side.
 	var py := h * 0.125
@@ -399,9 +421,27 @@ func _draw_meters_top(font: Font, w: float, h: float) -> void:
 
 func _pill(font: Font, label: String, value: float, x: float, y: float, pw: float, ph: float, fs: int) -> void:
 	_text(font, "%s  %d" % [label, int(round(value))], x, int(y - h_gap()), pw, fs, TEXT_DIM)
-	draw_rect(Rect2(x, y, pw, ph), PANEL)
-	draw_rect(Rect2(x, y, pw * (value / 100.0), ph), _meter_color(value))
-	draw_rect(Rect2(x, y, pw, ph), TEXT_DIM, false, 2.0)
+	_track(Rect2(x, y, pw, ph), value / 100.0, _meter_color(value))
+
+
+## An inset, rounded meter track with a lit fill and a gloss sliver — the shared
+## look for Composure and the two pills. `col` still comes from _meter_color(),
+## so the red→amber→green state language is untouched.
+func _track(rect: Rect2, frac: float, col: Color) -> void:
+	_rrect(rect, PANEL.darkened(0.22), int(rect.size.y * 0.5), Palette.BORDER, 2)
+	var pad := 2.5
+	var fw := (rect.size.x - pad * 2.0) * clampf(frac, 0.0, 1.0)
+	if fw <= 1.0:
+		return
+	var fill := Rect2(rect.position.x + pad, rect.position.y + pad, fw, rect.size.y - pad * 2.0)
+	var r := int(fill.size.y * 0.5)
+	_rrect(fill, col.darkened(0.18), r)
+	# Inset the gradient: _vgrad has sharp corners, so it has to stay clear of
+	# the rounded fill's edges.
+	var lit := fill.grow_individual(-r * 0.5, -1.5, -r * 0.5, -1.5)
+	_vgrad(lit, col.lightened(0.18), col.darkened(0.10))
+	_rrect(Rect2(fill.position.x + r * 0.5, fill.position.y + 1.5,
+			maxf(0.0, fill.size.x - r), fill.size.y * 0.30), Color(1.0, 1.0, 1.0, 0.20), 3)
 
 
 func h_gap() -> float:
@@ -478,7 +518,8 @@ func _draw_quiet_status(font: Font, w: float, h: float) -> void:
 	var bh := h * 0.032
 	var bar := col
 	bar.a = 0.92
-	draw_rect(Rect2(w * 0.06, by, w * 0.88, bh), bar)
+	_rrect(Rect2(w * 0.06, by, w * 0.88, bh), bar, int(bh * 0.34))
+	_rrect(Rect2(w * 0.07, by + bh * 0.14, w * 0.86, bh * 0.22), Color(1.0, 1.0, 1.0, 0.16), 3)
 	_text(font, label, 0, int(by + bh * 0.70), w, int(h * 0.020), Color(0.08, 0.07, 0.05))
 
 
@@ -490,33 +531,57 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 	var gbot := gy + gh
 	var zone := PushSim.zone_of(_state)
 
-	draw_rect(Rect2(gx - 8, gy - 8, gw + 16, gh + 16), PANEL)
-	# Whole track defaults to dead; bands and red paint over it.
-	_band(gx, gw, gbot, gh, 0.0, 1.0, DEAD)
+	# Housing, then the recessed track. The track's own colour IS the dead zone;
+	# the flow and red bands float on top of it.
+	_rrect(Rect2(gx - 8, gy - 8, gw + 16, gh + 16), PANEL, 16, Palette.BORDER, 2)
+	_rrect(Rect2(gx, gy, gw, gh), DEAD, 10)
 
 	var highest := 0.0
 	for band in _state.flow_bands:
 		highest = maxf(highest, band.y)
 		var inside: bool = _state.needle >= band.x and _state.needle <= band.y
-		_band(gx, gw, gbot, gh, band.x, band.y, FLOW if (zone == PushSim.ZONE_FLOW and inside) else FLOW_DIM)
-	_band(gx, gw, gbot, gh, highest, 1.0, RED if zone == PushSim.ZONE_RED else RED_DIM)
+		_lit_band(gx, gw, gbot, gh, band.x, band.y,
+				FLOW if (zone == PushSim.ZONE_FLOW and inside) else FLOW_DIM)
+	_lit_band(gx, gw, gbot, gh, highest, 1.0, RED if zone == PushSim.ZONE_RED else RED_DIM)
 
 	# In-flow glow — a soft reward for good placement.
 	if zone == PushSim.ZONE_FLOW:
 		var pulse := 0.5 + 0.5 * sin(_t * 6.0)
 		for band in _state.flow_bands:
 			if _state.needle >= band.x and _state.needle <= band.y:
-				var glow := FLOW
-				glow.a = 0.25 + 0.20 * pulse
-				_band(gx - 10, gw + 20, gbot, gh, band.x, band.y, glow)
+				# Two haloes: draw calls have no blur, so a wide-faint plus a
+				# tight-brighter pass fakes the falloff.
+				var outer := FLOW
+				outer.a = (0.10 + 0.09 * pulse)
+				_band(gx - 6, gw + 12, gbot, gh, band.x - 0.014, band.y + 0.014, outer, 14)
+				var inner := FLOW
+				inner.a = (0.14 + 0.12 * pulse)
+				_band(gx - 3, gw + 6, gbot, gh, band.x - 0.006, band.y + 0.006, inner, 11)
 
-	# Needle.
+	# Needle — the one pure-white mark on the screen, haloed in its zone colour.
 	var ny := gbot - _state.needle * gh
 	var zcol: Color = [TEXT_DIM, FLOW, RED][zone]
-	var glow_col := zcol
-	glow_col.a = 0.35
-	draw_rect(Rect2(gx - gw * 0.16, ny - 14, gw * 1.32, 28), glow_col)
-	draw_rect(Rect2(gx - gw * 0.08, ny - 6, gw * 1.16, 12), NEEDLE)
+	# Four fading passes rather than two: with hard-edged rects, too few steps
+	# read as stacked lozenges instead of a glow. The whole needle stays inside
+	# the housing — a halo spilling onto the backdrop reads as a smear. The dead
+	# zone's grey halo is pulled right down; it's the state with nothing to say.
+	var halo_peak := 0.12 if zone == PushSim.ZONE_DEAD else 0.26
+	for i in 4:
+		var f := float(i) / 3.0
+		var halo := zcol
+		halo.a = halo_peak * (1.0 - f * 0.70)
+		var hh := 32.0 - f * 15.0
+		var spread := 12.0 - f * 9.0
+		_rrect(Rect2(gx - spread, ny - hh * 0.5, gw + spread * 2.0, hh), halo, int(hh * 0.5))
+
+	var body := Rect2(gx - 4.0, ny - 8.0, gw + 8.0, 16.0)
+	_rrect(body, NEEDLE, 8)
+	# Highlight line along the top of the body, and a capped tip.
+	_rrect(Rect2(body.position.x + 6.0, body.position.y + 2.5, body.size.x - 12.0, 4.0),
+			Color(1.0, 1.0, 1.0, 0.9), 2)
+	var tip := Vector2(gx + gw - 8.0, ny)
+	draw_circle(tip, 11.0, NEEDLE)
+	draw_arc(tip, 11.0, 0.0, TAU, 28, zcol, 2.5, true)
 
 	# Quiet room, currently exposed: everything above the silence cap is audible —
 	# mark that region so the player sees exactly how low they must ride it out.
@@ -524,12 +589,12 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 		var y_cap := gbot - _level.silence_push_cap * gh
 		var warn := RED
 		warn.a = 0.14
-		draw_rect(Rect2(gx, gy, gw, y_cap - gy), warn)
+		_rrect(Rect2(gx, gy, gw, y_cap - gy), warn, 10)
 		draw_line(Vector2(gx, y_cap), Vector2(gx + gw, y_cap), RED, 2.0)
 
 	# During a Knock freeze, frost the gauge and flip the demand to RELEASE (UI spec).
 	if Hazards.relief_stalled(_state):
-		draw_rect(Rect2(gx - 8, gy - 8, gw + 16, gh + 16), Color(0.55, 0.78, 0.98, 0.16))
+		_rrect(Rect2(gx - 8, gy - 8, gw + 16, gh + 16), Color(0.55, 0.78, 0.98, 0.16), 16)
 
 	_text(font, "THE PUSH", gx - 8, int(gy - h * 0.018), gw + 16, int(h * 0.016), TEXT_DIM)
 	var zname: String = ["DEAD ZONE", "FLOW", "RED ZONE"][zone]
@@ -547,14 +612,31 @@ func _draw_relief(font: Font, w: float, h: float) -> void:
 	var rx := w * 0.64
 	var rw := w * 0.16
 
-	draw_rect(Rect2(rx, gy, rw, gh), PANEL.darkened(0.2))
+	# The tube reads as glass: a dark recess, then the column of relief inside it.
+	_rrect(Rect2(rx, gy, rw, gh), PANEL.darkened(0.35), 16, Palette.BORDER, 2)
+
 	var fh := gh * (_state.relief / 100.0)
 	var rcol := FLOW
 	if _milestone_flash > 0.0:
 		rcol = NEEDLE.lerp(FLOW, 1.0 - _milestone_flash / 0.5)
-	draw_rect(Rect2(rx, gbot - fh, rw, fh), rcol)
-	draw_rect(Rect2(rx, gy, rw, gh), TEXT_DIM, false, 2.0)
-	draw_line(Vector2(rx - 6, gy), Vector2(rx + rw + 6, gy), GOAL, 3.0)  # goal line
+	var pad := 5.0
+	var top_y := maxf(gy + pad, gbot - pad - fh)
+	if gbot - pad - top_y > 1.0:
+		var fill := Rect2(rx + pad, top_y, rw - pad * 2.0, gbot - pad - top_y)
+		_rrect(fill, rcol.darkened(0.22), 12)
+		# Gradient inset clear of the rounded corners (see _vgrad), then a gloss
+		# band across the surface of the column.
+		var lit := fill.grow_individual(-6.0, -5.0, -6.0, -5.0)
+		_vgrad(lit, rcol.lightened(0.30), rcol.darkened(0.24))
+		_rrect(Rect2(fill.position.x + 5.0, fill.position.y + 4.0,
+				maxf(0.0, fill.size.x - 10.0), minf(8.0, fill.size.y * 0.10)),
+				Color(1.0, 1.0, 1.0, 0.28), 4)
+
+	# Goal marker — a gold capsule straddling the tube, with a faint halo.
+	var goal_glow := GOAL
+	goal_glow.a = 0.22
+	_rrect(Rect2(rx - 12, gy - 6, rw + 24, 13), goal_glow, 6)
+	_rrect(Rect2(rx - 8, gy - 2.5, rw + 16, 5), GOAL, 3)
 	_text(font, "RELIEF", rx, int(gy - h * 0.018), rw, int(h * 0.016), TEXT_DIM)
 	_text(font, "%d%%" % int(_state.relief), rx, int(gbot + h * 0.04), rw, int(h * 0.024), TEXT)
 
@@ -581,7 +663,8 @@ func _draw_prompt(font: Font, w: float, h: float) -> void:
 		return
 	var by := h * 0.74
 	var bh := h * 0.05
-	draw_rect(Rect2(w * 0.10, by, w * 0.80, bh), col)
+	_rrect(Rect2(w * 0.10, by, w * 0.80, bh), col, int(bh * 0.30))
+	_rrect(Rect2(w * 0.11, by + bh * 0.12, w * 0.78, bh * 0.20), Color(1.0, 1.0, 1.0, 0.18), 4)
 	_text(font, text, 0, int(by + bh * 0.66), w, int(h * 0.026), Color(0.1, 0.08, 0.05))
 
 
@@ -693,10 +776,67 @@ func _rank_title(result: Dictionary) -> String:
 			return "PUBLICLY HUMILIATED" if not bool(result.never_detected) else "BY A HAIR"
 
 
-func _band(x: float, bw: float, bottom: float, gh: float, n_lo: float, n_hi: float, col: Color) -> void:
+# ----------------------------------------------------------- draw primitives
+#
+# _draw() has no blur, no gradients and no rounded shapes of its own, so the
+# vector look is built from three things: StyleBoxFlat for rounded rects,
+# per-vertex polygon colours for gradients, and stacked translucent passes for
+# anything that wants to glow.
+
+## A rounded rect. Deliberately allocates a FRESH StyleBoxFlat every call —
+## draw commands can resolve a style box after _draw() returns, so reusing and
+## mutating one would repaint every earlier rect with the last colour set.
+func _rrect(rect: Rect2, col: Color, radius: int,
+		border_col: Color = Color(0, 0, 0, 0), border_w: int = 0) -> void:
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = col
+	sb.set_corner_radius_all(radius)
+	if border_w > 0:
+		sb.border_color = border_col
+		sb.set_border_width_all(border_w)
+	draw_style_box(sb, rect)
+
+
+## A vertical two-stop gradient, as a quad with per-vertex colours. Its corners
+## are SHARP — inset it inside a rounded housing rather than using it as the
+## outer shape of anything.
+func _vgrad(rect: Rect2, top: Color, bottom: Color) -> void:
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	var pts := PackedVector2Array([
+		rect.position,
+		Vector2(rect.end.x, rect.position.y),
+		rect.end,
+		Vector2(rect.position.x, rect.end.y),
+	])
+	draw_polygon(pts, PackedColorArray([top, top, bottom, bottom]))
+
+
+## One horizontal slice of the gauge track, in needle-space (0..1).
+func _band(x: float, bw: float, bottom: float, gh: float, n_lo: float, n_hi: float,
+		col: Color, radius: int = 8) -> void:
 	var y_hi := bottom - n_hi * gh
 	var y_lo := bottom - n_lo * gh
-	draw_rect(Rect2(x, y_hi, bw, y_lo - y_hi), col)
+	_rrect(Rect2(x, y_hi, bw, y_lo - y_hi), col, radius)
+
+
+## A gauge band with a top-lit gradient and a gloss sliver — the flow and red
+## zones, which need to read as raised surfaces against the recessed track.
+func _lit_band(x: float, bw: float, bottom: float, gh: float, n_lo: float, n_hi: float,
+		col: Color) -> void:
+	var y_hi := bottom - n_hi * gh
+	var rect := Rect2(x, y_hi, bw, (bottom - n_lo * gh) - y_hi)
+	if rect.size.y <= 0.0:
+		return
+	_rrect(rect, col, 8)
+	var lit := rect.grow_individual(-5.0, -4.0, -5.0, -4.0)
+	if lit.size.x <= 0.0 or lit.size.y <= 0.0:
+		return
+	_vgrad(lit, col.lightened(0.16), col.darkened(0.22))
+	_rrect(Rect2(lit.position.x, lit.position.y, lit.size.x, minf(6.0, lit.size.y * 0.25)),
+			Color(1.0, 1.0, 1.0, 0.16), 3)
 
 
 func _draw_star(center: Vector2, radius: float, col: Color, filled: bool) -> void:
