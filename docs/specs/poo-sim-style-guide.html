@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Poo Sim — Style Guide &amp; Palette Lock</title>
+<style>
+  :root{
+    /* --- LOCKED PALETTE (extracted from the shipping prototype) --- */
+    --bg:#171A1F; --panel:#262B36; --dead:#303B4A; --border:#4D576B;
+    --flow:#3DD166; --flow-dim:#266B40;
+    --red:#EB4D40; --red-dim:#6B3030;
+    --amber:#F2BF40; --orange:#FA8C26; --goal:#F5EB6B;
+    --needle:#FAFCFF; --text:#EBF0FA; --text-dim:#94A1B5;
+    /* page (register B — the deadpan manual: ink on paper) */
+    --paper:#efe9db; --paper-2:#e6dfcd; --ink:#253247; --ink-soft:#6b7b93;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"IBM Plex Mono","Courier New",ui-monospace,monospace;
+    font-size:15px; line-height:1.5;
+  }
+  .page{max-width:1040px; margin:0 auto; padding:28px 24px 80px; position:relative}
+  /* frame + registration marks (register B flavour) */
+  .frame{border:2px solid var(--ink); padding:26px 30px 40px; position:relative}
+  .frame::before,.frame::after{content:"";position:absolute;width:14px;height:14px;border:2px solid var(--ink-soft)}
+  .frame::before{top:8px;left:8px;border-right:0;border-bottom:0}
+  .frame::after{bottom:8px;right:8px;border-left:0;border-top:0}
+
+  h1{font-family:Arial,Helvetica,sans-serif; font-size:30px; margin:2px 0 2px; letter-spacing:.5px}
+  .kicker{font-size:13px; letter-spacing:3px; font-weight:bold; color:var(--ink)}
+  .rule{border:0;border-top:1px solid var(--ink-soft); margin:14px 0 26px}
+  .sub{color:var(--ink-soft); font-size:13px; margin:0 0 6px}
+  h2{font-family:Arial,Helvetica,sans-serif; font-size:20px; margin:38px 0 4px}
+  h2 .n{color:var(--ink-soft); font-family:"IBM Plex Mono",monospace; font-size:15px; margin-right:10px}
+  h3{font-size:14px; letter-spacing:1px; margin:22px 0 8px; text-transform:uppercase}
+  p{margin:8px 0}
+  code{background:var(--paper-2); padding:1px 6px; border-radius:4px; font-size:13px}
+  .lede{font-size:15px; max-width:74ch}
+  b{color:var(--ink)}
+
+  /* swatch grid */
+  .swatches{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; margin-top:12px}
+  .sw{border:1px solid var(--border); border-radius:8px; overflow:hidden; background:var(--panel)}
+  .sw .chip{height:66px}
+  .sw .meta{padding:8px 10px; background:var(--bg); color:var(--text)}
+  .sw .nm{font-weight:bold; font-size:12.5px; letter-spacing:.5px}
+  .sw .hex{color:var(--text-dim); font-size:12px}
+  .sw .role{color:var(--text-dim); font-size:11.5px; margin-top:3px; line-height:1.35}
+
+  /* the sim, shown on its own dark surface */
+  .stage{background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:18px 20px; color:var(--text); margin-top:10px}
+  .meterbar{height:22px; border-radius:5px; border:1px solid var(--border); overflow:hidden; background:var(--panel); position:relative}
+  .meterbar > span{display:block;height:100%}
+  .grad{height:22px;border-radius:5px;border:1px solid var(--border);
+        background:linear-gradient(90deg,var(--red) 0%, var(--amber) 50%, var(--flow) 100%)}
+  .scale{display:flex;justify-content:space-between;color:var(--text-dim);font-size:12px;margin-top:4px}
+  .legend{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px 20px;margin-top:12px}
+  .legend .row{display:flex;gap:10px;align-items:flex-start;color:var(--text)}
+  .dot{width:16px;height:16px;border-radius:4px;flex:0 0 auto;margin-top:2px;border:1px solid rgba(255,255,255,.15)}
+  .legend .t{font-size:13px}
+  .legend .t b{color:var(--text)} .legend .t span{color:var(--text-dim)}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+  @media(max-width:720px){.cols{grid-template-columns:1fr}}
+  ul{margin:8px 0;padding-left:20px} li{margin:5px 0}
+  .do b{color:#2f7d43} .dont b{color:#b23b30}
+  .tag{display:inline-block;font-size:11px;letter-spacing:1px;background:var(--ink);color:var(--paper);padding:2px 8px;border-radius:3px;vertical-align:middle;margin-left:8px}
+  pre{background:#1d2530;color:#dfe6f2;padding:14px 16px;border-radius:8px;overflow:auto;font-size:12.5px;line-height:1.55}
+  .pill{display:inline-block;border:1px solid var(--ink-soft);border-radius:999px;padding:2px 10px;font-size:12px;margin:2px 4px 2px 0}
+  .type-sample{font-size:26px;margin:4px 0}
+  .foot{color:var(--ink-soft);font-size:12px;text-align:center;margin-top:30px;letter-spacing:1px}
+</style>
+</head>
+<body>
+<div class="page"><div class="frame">
+
+  <div class="kicker">POO SIM · OPERATOR FIELD MANUAL</div>
+  <h1>Style Guide &amp; Palette Lock <span class="tag">v1 · LOCKED</span></h1>
+  <div class="sub">The single source of truth for colour, type, shape, and tone. New art matches this; code migrates to it.</div>
+  <hr class="rule">
+  <p class="lede">This isn't invented — it's <b>locked from what already ships</b>. Every colour below is lifted straight from the
+  running prototype (<code>push_prototype.gd</code>, <code>manual_overlay.gd</code>, <code>level_picker.gd</code>), the build you've
+  been playtesting. The job of this page is to give those values <b>names and roles</b> so nothing drifts, and to pin down the two
+  visual registers, the type system, and the shape rules around them.</p>
+
+  <!-- ========================================================= -->
+  <h2><span class="n">§1</span>The two registers</h2>
+  <p>Poo Sim is one joke told in two visual voices. Keep them distinct — the contrast <i>is</i> the comedy (spec §11).</p>
+  <div class="cols">
+    <div>
+      <h3>A · Chunky Cartoon <span style="color:var(--ink-soft)">— the world</span></h3>
+      <p>Bold, saturated, cel-shaded. Thick uniform outlines, flat fills, two-tone shading, exaggerated shapes. The characters,
+      toilets, environments, hazards, victory bursts. Gross-out via <b>cartoon exaggeration</b>, never realism.</p>
+    </div>
+    <div>
+      <h3>B · Deadpan Technical <span style="color:var(--ink-soft)">— the framing</span></h3>
+      <p>Ink-on-paper engineering-manual clinical: thin linework, leader lines, small-caps mono labels, registration marks
+      (this page, and <code>FIG. 1</code>). Used for the HUD's earnest gauges, the field manual, tutorials, loading plates.
+      Played completely straight.</p>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <h2><span class="n">§2</span>The palette</h2>
+  <p class="sub">Names match the constants already in code, so a future <code>Palette.gd</code> is a drop-in.</p>
+
+  <h3>Surfaces &amp; ink</h3>
+  <div class="swatches">
+    <div class="sw"><div class="chip" style="background:#171A1F"></div><div class="meta"><div class="nm">BG</div><div class="hex">#171A1F</div><div class="role">App background. Everything sits on this.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#262B36"></div><div class="meta"><div class="nm">PANEL</div><div class="hex">#262B36</div><div class="role">Cards, tracks, gauge housing.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#303B4A"></div><div class="meta"><div class="nm">DEAD</div><div class="hex">#303B4A</div><div class="role">The dead zone — “nothing happening”.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#4D576B"></div><div class="meta"><div class="nm">BORDER</div><div class="hex">#4D576B</div><div class="role">Hairlines, outlines on dark UI.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#FAFCFF"></div><div class="meta"><div class="nm">NEEDLE</div><div class="hex">#FAFCFF</div><div class="role">Pure white — the needle &amp; key marks only.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#EBF0FA"></div><div class="meta"><div class="nm">TEXT</div><div class="hex">#EBF0FA</div><div class="role">Primary text on dark.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#94A1B5"></div><div class="meta"><div class="nm">TEXT_DIM</div><div class="hex">#94A1B5</div><div class="role">Secondary text, labels, hints.</div></div></div>
+  </div>
+
+  <h3>Semantic colours <span style="color:var(--ink-soft);text-transform:none;letter-spacing:0">— load-bearing; meaning is fixed</span></h3>
+  <div class="swatches">
+    <div class="sw"><div class="chip" style="background:#3DD166"></div><div class="meta"><div class="nm">FLOW</div><div class="hex">#3DD166</div><div class="role">GO / safe / good. Relief, the flow zone, cover, bass.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#266B40"></div><div class="meta"><div class="nm">FLOW_DIM</div><div class="hex">#266B40</div><div class="role">Flow, inactive/off-target.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#EB4D40"></div><div class="meta"><div class="nm">RED</div><div class="hex">#EB4D40</div><div class="role">DANGER / greed. Red zone, splash, silence, hush, detection.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#6B3030"></div><div class="meta"><div class="nm">RED_DIM</div><div class="hex">#6B3030</div><div class="role">Red zone, inactive.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#F2BF40"></div><div class="meta"><div class="nm">AMBER</div><div class="hex">#F2BF40</div><div class="role">CAUTION / heads-up. Telegraphs, prompts, mid-meter.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#FA8C26"></div><div class="meta"><div class="nm">ORANGE</div><div class="hex">#FA8C26</div><div class="role">Hot accent — a ringing phone, a live prompt. Sparingly.</div></div></div>
+    <div class="sw"><div class="chip" style="background:#F5EB6B"></div><div class="meta"><div class="nm">GOAL</div><div class="hex">#F5EB6B</div><div class="role">Reward. The goal line, stars, titles.</div></div></div>
+  </div>
+
+  <!-- ========================================================= -->
+  <h2><span class="n">§3</span>The meter colour language <span class="tag">SACRED</span></h2>
+  <p>This mapping is the game's grammar. A player reads state by colour before they read a number — so colour <b>always</b> means
+  the same thing. Never decorate with these.</p>
+  <div class="stage">
+    <div style="color:var(--text-dim);font-size:12px;margin-bottom:6px">METER FILL — “fuller is better” for all four meters (Relief · Composure · Discretion · Cleanliness)</div>
+    <div class="grad"></div>
+    <div class="scale"><span>0 — critical</span><span>50</span><span>100 — safe</span></div>
+    <div class="legend">
+      <div class="row"><span class="dot" style="background:#3DD166"></span><div class="t"><b>Green — go / safe / good</b><br><span>Relief filling · in the flow zone · under cover · the bass</span></div></div>
+      <div class="row"><span class="dot" style="background:#EB4D40"></span><div class="t"><b>Red — danger / greed</b><br><span>Red zone · splashback · silence &amp; hush · you’ve been heard</span></div></div>
+      <div class="row"><span class="dot" style="background:#F2BF40"></span><div class="t"><b>Amber — caution / incoming</b><br><span>A window telegraphing · a prompt · a meter at half</span></div></div>
+      <div class="row"><span class="dot" style="background:#F5EB6B"></span><div class="t"><b>Gold — the prize</b><br><span>Goal line · stars · rank titles</span></div></div>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <h2><span class="n">§4</span>Typography <span class="tag">PROPOSED</span></h2>
+  <p>Two families, one per register. Free/OFL, embeddable in Godot later. (The prototype currently uses the engine fallback —
+  these are the proposal to lock.)</p>
+  <div class="cols">
+    <div>
+      <h3>Display — the cartoon UI</h3>
+      <div class="type-sample" style="font-family:'Fredoka',Arial,sans-serif;font-weight:700">The Push — 100%</div>
+      <p><b>Fredoka</b> (or Baloo 2 / Nunito ExtraBold). Chunky, rounded, friendly, high legibility on a phone. Titles, meter
+      readouts, buttons, the big juicy numbers.</p>
+    </div>
+    <div>
+      <h3>Technical — the manual voice</h3>
+      <div class="type-sample" style="font-family:'IBM Plex Mono',monospace">FIG.1 — THE OPERATOR</div>
+      <p><b>IBM Plex Mono</b> (or Space Mono). Clinical, evenly-spaced, deadpan. All the field-manual copy, diagram labels,
+      loading tips, achievement citations.</p>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <h2><span class="n">§5</span>Shape language</h2>
+  <div class="cols">
+    <div>
+      <ul>
+        <li><b>Thick, uniform outlines</b> on all cartoon shapes — ~0.5% of screen width, rounded caps &amp; joins.</li>
+        <li><b>Flat fills + one shadow tone.</b> Two-tone cel shading, never a smooth gradient in the base art.</li>
+        <li><b>Gradients &amp; glow are juice only</b> — the flow-zone pulse, a milestone flash — never structural.</li>
+        <li><b>Corner radius scale:</b> 6 (chips) · 10 (panels) · pill = height/2 (meters, buttons).</li>
+        <li><b>Squiggle stink-lines &amp; motion lines</b> are the sanctioned comedic flourish.</li>
+      </ul>
+    </div>
+    <div>
+      <svg viewBox="0 0 320 150" width="100%" style="background:var(--bg);border:1px solid var(--border);border-radius:10px">
+        <!-- cel-shaded chunk -->
+        <rect x="24" y="30" width="120" height="90" rx="18" fill="#3DD166" stroke="#0f1b12" stroke-width="6"/>
+        <path d="M34 96 q10 14 30 14 h70 a8 8 0 0 0 8 -8 v-8 h-108 z" fill="#266B40"/>
+        <text x="84" y="140" fill="#94A1B5" font-family="monospace" font-size="11" text-anchor="middle">2-tone · thick outline</text>
+        <!-- radius demo -->
+        <rect x="188" y="30" width="108" height="34" rx="6" fill="#262B36" stroke="#4D576B" stroke-width="2"/>
+        <text x="242" y="52" fill="#EBF0FA" font-family="monospace" font-size="12" text-anchor="middle">r6</text>
+        <rect x="188" y="74" width="108" height="36" rx="18" fill="#262B36" stroke="#4D576B" stroke-width="2"/>
+        <text x="242" y="97" fill="#EBF0FA" font-family="monospace" font-size="12" text-anchor="middle">pill</text>
+        <text x="242" y="140" fill="#94A1B5" font-family="monospace" font-size="11" text-anchor="middle">radius scale</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <h2><span class="n">§6</span>Do &amp; Don't</h2>
+  <div class="cols">
+    <div class="do">
+      <h3 style="color:#2f7d43">Do</h3>
+      <ul>
+        <li><b>Readability first.</b> Meters &amp; hazards must pop against any busy background (pillar 2).</li>
+        <li><b>Keep colour = meaning.</b> Green is always go, red is always danger — everywhere, no exceptions.</li>
+        <li><b>Play the manual voice straight.</b> The gravity is the gag.</li>
+        <li><b>Sell the gross-out with comedy &amp; audio</b>, not the visuals.</li>
+      </ul>
+    </div>
+    <div class="dont">
+      <h3 style="color:#b23b30">Don't</h3>
+      <ul>
+        <li><b>No photoreal / realistic grime.</b> It kills the joke and the appeal.</li>
+        <li><b>Don't repurpose the semantic colours</b> as decoration or theming.</li>
+        <li><b>No gradients in base shapes.</b> Flat + 2-tone only.</li>
+        <li><b>Don't crowd the HUD.</b> One decision at a time; art serves the read.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <h2><span class="n">§7</span>Tokens <span style="color:var(--ink-soft);font-family:monospace;font-size:14px">→ the code lock</span></h2>
+  <p>The next step of the lock: hoist these out of the three view scripts into one <code>Palette.gd</code> so the values live in
+  exactly one place and can never drift.</p>
+<pre>class_name Palette
+## The locked palette (see poo-sim-style-guide.html). One source of truth;
+## views reference these instead of redefining Color() literals.
+const BG        := Color("171A1F")
+const PANEL     := Color("262B36")
+const DEAD      := Color("303B4A")
+const BORDER    := Color("4D576B")
+const FLOW      := Color("3DD166")   ## go / safe / good
+const FLOW_DIM  := Color("266B40")
+const RED       := Color("EB4D40")   ## danger / greed
+const RED_DIM   := Color("6B3030")
+const AMBER     := Color("F2BF40")   ## caution / incoming
+const ORANGE    := Color("FA8C26")   ## hot accent, sparingly
+const GOAL      := Color("F5EB6B")   ## reward
+const NEEDLE    := Color("FAFCFF")
+const TEXT      := Color("EBF0FA")
+const TEXT_DIM  := Color("94A1B5")</pre>
+
+  <div class="foot">POO SIM · STYLE GUIDE v1 · LOCKED FROM THE SHIPPING PROTOTYPE · TREAT WITH THE GRAVITY IT DESERVES</div>
+
+</div></div>
+</body>
+</html>

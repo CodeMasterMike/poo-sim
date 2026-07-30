@@ -59,6 +59,7 @@ The design is spread across six cross-referenced specs, all in [`docs/specs/`](d
 | [poo-sim-environments.md](docs/specs/poo-sim-environments.md) | Environment backlog — the rule each venue breaks |
 | [poo-sim-scoring.md](docs/specs/poo-sim-scoring.md) | Scoring math, star thresholds, results choreography |
 | [poo-sim-sound-design.md](docs/specs/poo-sim-sound-design.md) | Full audio spec |
+| [poo-sim-style-guide.html](docs/specs/poo-sim-style-guide.html) | Locked palette, type, shape & tone — the art bible |
 
 Interactive mockups (open the `.html` files directly in a browser):
 `poo-sim-seated-screen.html`, `poo-sim-results-screen.html`, `poo-sim-sound-demo.html`.
