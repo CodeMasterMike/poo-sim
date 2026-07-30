@@ -514,7 +514,12 @@ func _draw_quiet_status(font: Font, w: float, h: float) -> void:
 		col = FLOW
 		label = "COVER  —  PUSH NOW" if church else "BASS  —  PUSH FREELY"
 
-	var by := h * 0.165
+	# The bar has to fit the band between the pills (bottom h*0.147) and the tops of
+	# the "THE PUSH"/"RELIEF" column labels, whose caps reach up to about h*0.190
+	# from their h*0.202 baseline. That leaves ~h*0.043 of room for an h*0.032 bar;
+	# h*0.152 centres it. Moving it back down collides with both labels — the gauge
+	# and relief columns hold the same place on every level, quiet room or not.
+	var by := h * 0.152
 	var bh := h * 0.032
 	var bar := col
 	bar.a = 0.92
