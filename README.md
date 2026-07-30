@@ -8,9 +8,11 @@ hazards that are actively trying to embarrass, expose, or defeat you.
 - **Platform:** Mobile (iOS + Android), portrait
 - **Model:** Premium — one flat purchase, no ads, no IAP
 
-> **Status:** The grey-box **Push** prototype (roadmap step 1) is built and is the default
-> run scene — press Play to try it. The design is fully specced (`docs/specs/`); the next
-> milestone is the Vertical Slice — see [docs/specs/poo-sim-spec.md](docs/specs/poo-sim-spec.md) §14/§16.
+> **Status:** The **Push** prototype (roadmap step 1) is built and is the default run scene —
+> press Play to try it. Its HUD has had a vector-art pass, so the meters, gauge and relief tube
+> are drawn deliberately rather than grey-boxed; the character, toilet and environment are still
+> unillustrated. The design is fully specced (`docs/specs/`); the next milestone is the Vertical
+> Slice — see [docs/specs/poo-sim-spec.md](docs/specs/poo-sim-spec.md) §14/§16.
 
 ## Getting started
 
@@ -48,7 +50,7 @@ docs/specs/            Full design docs + interactive HTML mockups
 
 ## Design docs
 
-The design is spread across six cross-referenced specs, all in [`docs/specs/`](docs/specs/):
+The design is spread across nine cross-referenced specs, all in [`docs/specs/`](docs/specs/):
 
 | Doc | Covers |
 |---|---|
@@ -60,6 +62,8 @@ The design is spread across six cross-referenced specs, all in [`docs/specs/`](d
 | [poo-sim-scoring.md](docs/specs/poo-sim-scoring.md) | Scoring math, star thresholds, results choreography |
 | [poo-sim-sound-design.md](docs/specs/poo-sim-sound-design.md) | Full audio spec |
 | [poo-sim-style-guide.html](docs/specs/poo-sim-style-guide.html) | Locked palette, type, shape & tone — the art bible |
+| [poo-sim-vector-pass.md](docs/specs/poo-sim-vector-pass.md) | The HUD vector-art pass — what shipped, and the `_draw()` techniques behind it |
 
 Interactive mockups (open the `.html` files directly in a browser):
 `poo-sim-seated-screen.html`, `poo-sim-results-screen.html`, `poo-sim-sound-demo.html`.
+The vector pass's target render is `poo-sim-vector-mockup.svg`.

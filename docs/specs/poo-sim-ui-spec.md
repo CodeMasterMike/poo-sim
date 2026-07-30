@@ -112,7 +112,13 @@ The design goal is **glance-and-tap, never a menu to study.**
 
 ## Component / asset checklist
 
-For the artist and engineer, the discrete pieces this screen needs:
+For the artist and engineer, the discrete pieces this screen needs.
+
+> **Already drawn in code.** The Composure bar, the Discretion/Cleanliness pills, the Force
+> gauge (track, regions, glowing needle) and the Relief meter are painted procedurally in
+> `push_prototype.gd` `_draw()` — see [the vector pass](poo-sim-vector-pass.md). Everything
+> below them on this list — scene layers, character rig, hazard actors, results card — is
+> still unillustrated and is what a scene-art pass has to produce.
 
 - HUD: pause, mute, level-label plate.
 - Composure bar with 3-stage color states.
