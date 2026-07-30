@@ -1,0 +1,86 @@
+<svg viewBox="0 0 540 960" xmlns="http://www.w3.org/2000/svg" font-family="Arial, Helvetica, sans-serif">
+  <!-- DRAFT TARGET for the prototype vector pass (see poo-sim-vector-pass.md).
+       Layout mirrors push_prototype.gd geometry; colours are the locked Palette.
+       Not yet visually verified or ported to Godot _draw(). -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c212b"/>
+      <stop offset="0.62" stop-color="#171a1f"/>
+      <stop offset="1" stop-color="#12151a"/>
+    </linearGradient>
+    <radialGradient id="vig" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0.6" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.35"/>
+    </radialGradient>
+    <linearGradient id="reliefFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7ff0a2"/>
+      <stop offset="0.18" stop-color="#3dd166"/>
+      <stop offset="1" stop-color="#2ba24f"/>
+    </linearGradient>
+    <linearGradient id="compFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6ee08c"/>
+      <stop offset="1" stop-color="#33b658"/>
+    </linearGradient>
+    <linearGradient id="flowBand" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#54e07d"/>
+      <stop offset="1" stop-color="#2fa552"/>
+    </linearGradient>
+  </defs>
+
+  <!-- backdrop -->
+  <rect x="0" y="0" width="540" height="960" fill="url(#bg)"/>
+  <rect x="0" y="0" width="540" height="960" fill="url(#vig)"/>
+  <line x1="0" y1="770" x2="540" y2="770" stroke="#2a3140" stroke-width="2" opacity="0.6"/>
+
+  <!-- HUD -->
+  <rect x="20" y="16" width="150" height="34" rx="9" fill="#262b36" stroke="#4d576b" stroke-width="1.5"/>
+  <text x="34" y="38" fill="#ebf0fa" font-size="15" font-weight="bold">LEVEL: Church</text>
+  <circle cx="512" cy="33" r="17" fill="#262b36" stroke="#4d576b" stroke-width="1.5"/>
+  <text x="512" y="39" fill="#ebf0fa" font-size="18" text-anchor="middle">?</text>
+  <text x="270" y="40" fill="#ebf0fa" font-size="22" font-weight="bold" text-anchor="middle" letter-spacing="1">The Push</text>
+
+  <!-- COMPOSURE -->
+  <text x="270" y="70" fill="#94a1b5" font-size="12" text-anchor="middle" letter-spacing="2">COMPOSURE</text>
+  <rect x="32" y="78" width="476" height="22" rx="11" fill="#20242d" stroke="#4d576b" stroke-width="1.5"/>
+  <rect x="34" y="80" width="330" height="18" rx="9" fill="url(#compFill)"/>
+  <rect x="36" y="82" width="326" height="6" rx="3" fill="#ffffff" opacity="0.18"/>
+
+  <!-- PILLS -->
+  <rect x="32" y="112" width="228" height="30" rx="10" fill="#20242d" stroke="#4d576b" stroke-width="1.5"/>
+  <text x="46" y="132" fill="#94a1b5" font-size="12" letter-spacing="1">DISCRETION</text>
+  <rect x="150" y="120" width="100" height="14" rx="7" fill="#2a2f3a"/>
+  <rect x="150" y="120" width="94" height="14" rx="7" fill="#3dd166"/>
+  <rect x="280" y="112" width="228" height="30" rx="10" fill="#20242d" stroke="#4d576b" stroke-width="1.5"/>
+  <text x="294" y="132" fill="#94a1b5" font-size="12" letter-spacing="1">CLEANLINESS</text>
+  <rect x="404" y="120" width="96" height="14" rx="7" fill="#2a2f3a"/>
+  <rect x="404" y="120" width="96" height="14" rx="7" fill="#3dd166"/>
+
+  <!-- THE PUSH GAUGE -->
+  <text x="178" y="200" fill="#94a1b5" font-size="13" text-anchor="middle" letter-spacing="2">THE PUSH</text>
+  <rect x="100" y="206" width="156" height="450" rx="16" fill="#262b36" stroke="#4d576b" stroke-width="2"/>
+  <rect x="116" y="214" width="124" height="434" rx="10" fill="#303b4a"/>
+  <rect x="116" y="214" width="124" height="120" rx="10" fill="#6b3030"/>
+  <rect x="104" y="322" width="148" height="112" rx="14" fill="#3dd166" opacity="0.16"/>
+  <rect x="116" y="330" width="124" height="96" rx="8" fill="url(#flowBand)"/>
+  <rect x="120" y="334" width="116" height="6" rx="3" fill="#ffffff" opacity="0.22"/>
+  <rect x="96" y="366" width="164" height="30" rx="15" fill="#3dd166" opacity="0.22"/>
+  <rect x="104" y="374" width="148" height="14" rx="7" fill="#fafcff"/>
+  <rect x="104" y="375" width="148" height="4" rx="2" fill="#ffffff"/>
+  <circle cx="240" cy="381" r="10" fill="#fafcff" stroke="#3dd166" stroke-width="2"/>
+  <text x="178" y="686" fill="#3dd166" font-size="18" font-weight="bold" text-anchor="middle" letter-spacing="1">FLOW</text>
+
+  <!-- RELIEF -->
+  <text x="389" y="200" fill="#94a1b5" font-size="13" text-anchor="middle" letter-spacing="2">RELIEF</text>
+  <rect x="346" y="206" width="86" height="450" rx="16" fill="#191d24" stroke="#4d576b" stroke-width="2"/>
+  <rect x="352" y="378" width="74" height="272" rx="12" fill="url(#reliefFill)"/>
+  <rect x="356" y="382" width="66" height="8" rx="4" fill="#ffffff" opacity="0.28"/>
+  <line x1="338" y1="212" x2="440" y2="212" stroke="#f5eb6b" stroke-width="4" stroke-linecap="round"/>
+  <text x="389" y="686" fill="#ebf0fa" font-size="20" font-weight="bold" text-anchor="middle">62%</text>
+
+  <!-- PROMPT BAND (calm hint) -->
+  <rect x="54" y="712" width="432" height="46" rx="14" fill="#20242d" stroke="#3a4150" stroke-width="1.5"/>
+  <text x="270" y="741" fill="#94a1b5" font-size="16" text-anchor="middle" letter-spacing="1">hold to fill  ·  keep it in the green</text>
+
+  <!-- footer -->
+  <text x="270" y="892" fill="#6b7686" font-size="12" text-anchor="middle">HOLD push · release relax · R restart · 1/2/3 level · H manual</text>
+</svg>
