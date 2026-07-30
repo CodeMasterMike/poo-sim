@@ -9,10 +9,11 @@ hazards that are actively trying to embarrass, expose, or defeat you.
 - **Model:** Premium — one flat purchase, no ads, no IAP
 
 > **Status:** The **Push** prototype (roadmap step 1) is built and is the default run scene —
-> press Play to try it. Its HUD has had a vector-art pass, so the meters, gauge and relief tube
-> are drawn deliberately rather than grey-boxed; the character, toilet and environment are still
-> unillustrated. The design is fully specced (`docs/specs/`); the next milestone is the Vertical
-> Slice — see [docs/specs/poo-sim-spec.md](docs/specs/poo-sim-spec.md) §14/§16.
+> press Play to try it. The HUD has had a vector-art pass, and there's a first slice of scene art
+> — a tiled cubicle and a seated figure — drawn procedurally in the cartoon register. Hazard
+> actors (door, neighbour shadow, phone) are still placeholder shapes. The design is fully specced
+> (`docs/specs/`); the next milestone is the Vertical Slice — see
+> [docs/specs/poo-sim-spec.md](docs/specs/poo-sim-spec.md) §14/§16.
 
 ## Getting started
 

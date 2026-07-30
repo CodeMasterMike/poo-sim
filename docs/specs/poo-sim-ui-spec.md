@@ -114,11 +114,16 @@ The design goal is **glance-and-tap, never a menu to study.**
 
 For the artist and engineer, the discrete pieces this screen needs.
 
-> **Already drawn in code.** The Composure bar, the Discretion/Cleanliness pills, the Force
-> gauge (track, regions, glowing needle) and the Relief meter are painted procedurally in
-> `push_prototype.gd` `_draw()` — see [the vector pass](poo-sim-vector-pass.md). Everything
-> below them on this list — scene layers, character rig, hazard actors, results card — is
-> still unillustrated and is what a scene-art pass has to produce.
+> **Already drawn in code.** All of these are painted procedurally in `push_prototype.gd`
+> `_draw()` — see [the vector pass](poo-sim-vector-pass.md):
+>
+> - Composure bar, Discretion/Cleanliness pills, Force gauge, Relief meter, prompt band.
+> - Of the scene layers: a tiled cubicle wall and floor, and a seated character + toilet —
+>   one pose, with an idle bob and a hunch while pushing, not yet a rig with tense/fail poses.
+>
+> Still unillustrated, and what a full scene-art pass has to produce: swappable per-level
+> environments, the character rig's other poses, every hazard actor (door + latch, neighbour
+> shadow, waiter shadow, bowl/splash FX, phone), and the results card.
 
 - HUD: pause, mute, level-label plate.
 - Composure bar with 3-stage color states.

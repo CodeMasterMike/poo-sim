@@ -34,6 +34,26 @@ Turn the grey-box procedural rendering in `push_prototype.gd` `_draw()` into **i
 
 Character / toilet / environment illustration and hazard-actor art (door, neighbour shadow, smell cloud, phone). Those want raster/illustration work and can't be done blind — see the component checklist in the [UI spec](poo-sim-ui-spec.md) §Component/asset checklist. This pass is only the HUD/gauge/meter vector layer.
 
+### Superseded: a first slice of scene art landed anyway
+
+The "can't be done blind" reasoning stopped applying once the Godot MCP was reconnected, so a first pass of scene art followed immediately: a tiled cubicle backdrop and a seated figure on a toilet, both procedural. See **The sitter** below. Hazard-actor art is still untouched.
+
+## The sitter (`_draw_room()` / `_draw_sitter()`)
+
+This is the game's only representational art, and it is deliberately in the **other register** — style guide §1 splits the game into *A · Chunky Cartoon* for the world and *B · Deadpan Technical* for the framing. So the sitter follows §5 strictly: flat fills, exactly one shadow tone, thick ink outlines at ~0.5% of screen width, and **no gradients** — the opposite of the glossy HUD it sits behind. That contrast is the joke, not an inconsistency.
+
+Three constraints drove the design, and they're worth knowing before anyone "improves" it:
+
+- **He is a silhouette, not a coloured character.** §6 forbids repurposing the semantic colours as decoration, and every warm hue in the palette (`AMBER`, `ORANGE`, `RED`, `GOAL`) already means something load-bearing. Skin tones would either steal a semantic colour or introduce an off-palette one, so he is built from the neutral surface tones and reads as a shape.
+- **He is front-on, not in profile.** He lives in the gap between the gauge and the relief tube, which is only about `w * 0.166` wide. A side view needs room for knees and a cistern in a line and was unreadable at that width; front-on he is barely wider than his own shoulders and the columns frame him instead of burying him.
+- **The bowl is wider than his hips and the cistern wider than his shoulders.** That overhang is the entire reason the pose reads as *on a toilet* rather than *standing about*. The first attempt hid the toilet completely behind him and read as a man in front of a grey box.
+
+The room is at the edge of legibility on purpose — pillar 2 and §6 both say the meters win every contrast fight, so the tiling is `BORDER` at `a = 0.16`.
+
+`FLOOR_Y` (0.69) is the shared ground plane, set level with the bottom of the two columns so the whole HUD stands on the same floor. It replaced the earlier decorative floor line at 0.80, which sat below the columns and grounded nothing. Everything under `FLOOR_Y` is HUD apron: column values, prompt band, footers.
+
+He also carries a little life — an idle breathing bob, and a hunch while `_holding_now()`. Both are read off the input buffer and never fed back into the sim.
+
 ## Godot `_draw()` techniques for the port
 
 The view draws procedurally, so translate the mockup with these:

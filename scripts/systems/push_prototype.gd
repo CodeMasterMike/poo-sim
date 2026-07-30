@@ -50,6 +50,11 @@ const TEXT := Palette.TEXT
 const TEXT_DIM := Palette.TEXT_DIM
 const GOAL := Palette.GOAL
 
+## The room's ground plane, as a fraction of screen height. Level with the bottom
+## of the gauge and relief columns, so the whole HUD stands on the same floor and
+## the sitter has something to sit on. Everything below it is HUD apron.
+const FLOOR_Y := 0.69
+
 # --- Sim (the model + systems; the view only reads state) ---
 var _level: LevelDef
 var _match: MatchConfig
@@ -336,6 +341,7 @@ func _draw() -> void:
 	draw_set_transform(_shake, 0.0, Vector2.ONE)
 
 	_draw_backdrop(w, h)
+	_draw_sitter(w, h)
 
 	# The venue name lives in the LEVEL button (top-left); keep the title clean.
 	_text(font, "The Push", 0, int(h * 0.045), w, int(h * 0.026), TEXT)
@@ -382,6 +388,8 @@ func _draw_backdrop(w: float, h: float) -> void:
 	var full := Rect2(-40, -40, w + 80, h + 80)
 	_vgrad(full, BG.lightened(0.07), BG.darkened(0.30))
 
+	_draw_room(w, h)
+
 	# Vignette. Draw calls have no blur, so stack thin translucent frames that
 	# fade as they march inward. Keep the per-step alpha low and the steps many,
 	# or the falloff shows its seams.
@@ -394,11 +402,117 @@ func _draw_backdrop(w: float, h: float) -> void:
 		var fade := 1.0 - float(i) / float(steps - 1)
 		draw_rect(frame, Color(0.0, 0.0, 0.0, 0.045 * fade * fade), false, bw)
 
-	# Just enough floor to stop the HUD floating in a void. Two passes, the
-	# bright one held off the screen edges so it reads as a floor, not a seam.
-	var fy := h * 0.80
-	draw_line(Vector2(0.0, fy), Vector2(w, fy), Color(0.16, 0.19, 0.25, 0.30), 2.0)
-	draw_line(Vector2(w * 0.14, fy), Vector2(w * 0.86, fy), Color(0.20, 0.24, 0.31, 0.55), 2.0)
+
+## The cubicle: tiled wall, floor, skirting. Deliberately almost invisible —
+## pillar 2 says the meters win every contrast fight, so this is atmosphere at
+## the very edge of legibility, not scenery competing for the read.
+func _draw_room(w: float, h: float) -> void:
+	var fy := h * FLOOR_Y
+
+	var grout := Palette.BORDER
+	grout.a = 0.16
+	var tile := w * 0.115
+	var x := tile
+	while x < w:
+		draw_line(Vector2(x, 0.0), Vector2(x, fy), grout, 1.0)
+		x += tile
+	var y := tile
+	while y < fy:
+		draw_line(Vector2(0.0, y), Vector2(w, y), grout, 1.0)
+		y += tile
+
+	# Floor, a touch darker than the wall, and the skirting line where they meet.
+	draw_rect(Rect2(-40.0, fy, w + 80.0, h - fy + 40.0), BG.darkened(0.22))
+	draw_line(Vector2(-40.0, fy), Vector2(w + 40.0, fy), Palette.BORDER.darkened(0.40), 3.0)
+
+
+## The sitter — the only representational art on the screen, and deliberately in
+## the OTHER register (style guide §1): flat fills, one shadow tone, thick ink
+## outlines, no gradients. The contrast with the glossy HUD is the joke.
+##
+## He is a silhouette rather than a coloured character on purpose: §6 forbids
+## repurposing the semantic colours as decoration, and every warm hue in the
+## palette (AMBER, ORANGE, RED, GOAL) already means something load-bearing. So
+## he is built from the neutral surface tones and reads as a shape.
+##
+## Drawn before the HUD, in the gap between the gauge and the relief tube, so
+## the two columns crop his edges and he sits convincingly behind them.
+## He is drawn FRONT-ON, not in profile. A side view needs room for knees and a
+## cistern in a line, and the gap between the columns is only about w*0.166 wide;
+## front-on he is barely wider than his own shoulders and fits it almost exactly,
+## so the columns frame him instead of burying him.
+func _draw_sitter(w: float, h: float) -> void:
+	var s := h * 0.200                      # total height, crown to floor
+	var bx := w * 0.557                     # the centreline of the gap between the columns
+	var by := h * FLOOR_Y
+	var ink := BG.darkened(0.62)
+	var iw := maxf(2.0, w * 0.005)          # §5: outlines are ~0.5% of screen width
+	var cera := DEAD.lightened(0.28)
+	var cera_sh := DEAD.lightened(0.02)
+	var figure := PANEL.lightened(0.20)
+	var figure_sh := PANEL.darkened(0.10)
+
+	# Idle breathing, and a hunch while pushing. View-only: read off the input
+	# buffer, never fed back into the sim.
+	var bob := sin(_t * 2.2) * s * 0.008
+	var strain := s * 0.045 if _holding_now() else 0.0
+
+	# Contact shadow, so he sits on the floor instead of hovering over it.
+	_rrect(Rect2(bx - s * 0.30, by - s * 0.035, s * 0.60, s * 0.07), Color(0.0, 0.0, 0.0, 0.35), 5)
+
+	# --- the toilet: cistern behind him, then the bowl and pedestal ---
+	# The bowl is deliberately wider than his hips and the cistern wider than his
+	# shoulders, so both stay visible past his silhouette. That overhang is the
+	# whole reason the pose reads as "on a toilet" rather than "standing about".
+	_rrect(Rect2(bx - s * 0.22, by - s * 1.02, s * 0.44, s * 0.46), cera, 6, ink, int(iw))
+	_rrect(Rect2(bx - s * 0.20, by - s * 0.74, s * 0.40, s * 0.16), cera_sh, 4)  # its shadow tone
+	_rrect(Rect2(bx - s * 0.17, by - s * 0.95, s * 0.14, s * 0.06), cera_sh, 3)  # the flush plate
+	_rrect(Rect2(bx - s * 0.16, by - s * 0.34, s * 0.32, s * 0.34), cera_sh, 5, ink, int(iw))
+	_rrect(Rect2(bx - s * 0.31, by - s * 0.50, s * 0.62, s * 0.20), cera, 9, ink, int(iw))
+	# The seat, as its own darker ring on top of the bowl (§5: flat, 2-tone).
+	_rrect(Rect2(bx - s * 0.27, by - s * 0.48, s * 0.54, s * 0.05), cera_sh, 3)
+
+	# --- the man, hunched forward, elbows on knees ---
+	var head := Vector2(bx, by - s * 0.86 + strain * 0.9 + bob)
+	var neck := Vector2(bx, by - s * 0.68 + strain * 0.7 + bob)
+	var hip := Vector2(bx, by - s * 0.48)
+	var shoulder_l := Vector2(bx - s * 0.16, by - s * 0.64 + strain * 0.5 + bob)
+	var shoulder_r := Vector2(bx + s * 0.16, by - s * 0.64 + strain * 0.5 + bob)
+	var elbow_l := Vector2(bx - s * 0.21, by - s * 0.48)
+	var elbow_r := Vector2(bx + s * 0.21, by - s * 0.48)
+	var knee_l := Vector2(bx - s * 0.15, by - s * 0.40)
+	var knee_r := Vector2(bx + s * 0.15, by - s * 0.40)
+	var foot_l := Vector2(bx - s * 0.22, by - s * 0.03)
+	var foot_r := Vector2(bx + s * 0.22, by - s * 0.03)
+
+	# Every outline is laid down before any fill, so he reads as one silhouette
+	# with a single thick outline rather than a stack of separately-inked tubes.
+	var limbs := [
+		[knee_l, foot_l, s * 0.045], [knee_r, foot_r, s * 0.045],
+		[knee_l, knee_l, s * 0.058], [knee_r, knee_r, s * 0.058],
+		[hip, neck, s * 0.095],
+		[shoulder_l, shoulder_r, s * 0.070],
+		[shoulder_l, elbow_l, s * 0.042], [shoulder_r, elbow_r, s * 0.042],
+		[elbow_l, knee_l, s * 0.038], [elbow_r, knee_r, s * 0.038],
+		[head, head, s * 0.115],
+	]
+	for limb in limbs:
+		_limb(limb[0], limb[1], limb[2] + iw, ink)
+	for limb in limbs:
+		_limb(limb[0], limb[1], limb[2], figure)
+	# The one shadow tone (§5: flat + 2-tone, never a gradient) — his left side.
+	_limb(hip + Vector2(-s * 0.052, 0.0), neck + Vector2(-s * 0.052, 0.0), s * 0.046, figure_sh)
+	_limb(head + Vector2(-s * 0.040, s * 0.008), head + Vector2(-s * 0.040, s * 0.008),
+			s * 0.068, figure_sh)
+
+
+## One round-capped bar. draw_line has no round caps, so each end gets a circle.
+## Passing the same point twice draws a plain disc — that is how the head is done.
+func _limb(a: Vector2, b: Vector2, r: float, col: Color) -> void:
+	if a != b:
+		draw_line(a, b, col, r * 2.0)
+	draw_circle(a, r, col)
+	draw_circle(b, r, col)
 
 
 func _draw_meters_top(font: Font, w: float, h: float) -> void:
