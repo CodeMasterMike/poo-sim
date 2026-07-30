@@ -216,8 +216,8 @@
 
   <!-- ========================================================= -->
   <h2><span class="n">§7</span>Tokens <span style="color:var(--ink-soft);font-family:monospace;font-size:14px">→ the code lock</span></h2>
-  <p>The next step of the lock: hoist these out of the three view scripts into one <code>Palette.gd</code> so the values live in
-  exactly one place and can never drift.</p>
+  <p><b>Locked in code:</b> these live in one place — <code>scripts/ui/palette.gd</code> (<code>class_name Palette</code>) — and the
+  view scripts alias from it (<code>const FLOW := Palette.FLOW</code>), so the values exist once and can't drift.</p>
 <pre>class_name Palette
 ## The locked palette (see poo-sim-style-guide.html). One source of truth;
 ## views reference these instead of redefining Color() literals.

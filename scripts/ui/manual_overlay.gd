@@ -14,16 +14,14 @@ extends Control
 ## is responsible for pausing the sim while `is_open()` — the manual doesn't know
 ## the sim exists.
 
-# --- Palette (mirrors the grey-box view so the manual reads as the same product) ---
-const C_BG := Color(0.07, 0.08, 0.10, 0.92)
-const C_PANEL := Color(0.13, 0.15, 0.19)
-const C_BORDER := Color(0.30, 0.34, 0.42)
-const C_TITLE := Color(0.96, 0.92, 0.42)
-const C_TEXT := Color(0.90, 0.93, 0.98)
-const HEX_FLOW := "3ed166"
-const HEX_RED := "eb4c40"
-const HEX_AMBER := "f2bf40"
-const HEX_DIM := "94a1b5"
+# --- Colours: aliased from the locked Palette (docs/specs/poo-sim-style-guide.html),
+#     so the manual reads as the same product as the sit. BBCode hex spans are
+#     derived from the same tokens in _manual_text(). ---
+const C_BG := Palette.SCRIM
+const C_PANEL := Palette.PANEL
+const C_BORDER := Palette.BORDER
+const C_TITLE := Palette.GOAL
+const C_TEXT := Palette.TEXT
 
 var _overlay: Control
 var _body: RichTextLabel
@@ -165,34 +163,39 @@ func _panel_style() -> StyleBoxFlat:
 ## Push, the four gauges, and the live hazards — Knock, Jolt, Buzz, Smell Cloud, and
 ## the Cover/Hush quiet-room mechanic); extend as the rest of the catalog comes online.
 func _manual_text() -> String:
+	# BBCode hex spans, straight from the locked Palette tokens.
+	var flow := Palette.FLOW.to_html(false)
+	var red := Palette.RED.to_html(false)
+	var amber := Palette.AMBER.to_html(false)
+	var dim := Palette.TEXT_DIM.to_html(false)
 	# Copy below uses a compact [c=hex]…[/c] shorthand for readability; expand it to
 	# real BBCode color spans here in one pass.
 	var s: String = "".join([
 		_h("OBJECTIVE"),
 		"You are seated. You will not be leaving until the act is complete. ",
-		"Fill the [c=%s]RELIEF[/c] gauge to 100%% before your [c=%s]COMPOSURE[/c] runs out — " % [HEX_FLOW, HEX_AMBER],
+		"Fill the [c=%s]RELIEF[/c] gauge to 100%% before your [c=%s]COMPOSURE[/c] runs out — " % [flow, amber],
 		"quietly, and without incident. This is a matter of personal dignity. Treat it as such.\n\n",
 
 		_h("I.  THE PUSH"),
 		"One control governs everything. [b]Hold anywhere[/b] to bear down and raise the needle; ",
 		"[b]release[/b] to relax and let it fall. The needle sits in one of three zones:\n",
-		_li("[c=%s]DEAD ZONE (low)[/c]" % HEX_DIM,
+		_li("[c=%s]DEAD ZONE (low)[/c]" % dim,
 			"Nothing happens down here, slowly. Relief barely fills and your Composure bleeds while you dither. Idling is not a strategy; it is a defeat in slow motion."),
-		_li("[c=%s]FLOW (green band)[/c]" % HEX_FLOW,
+		_li("[c=%s]FLOW (green band)[/c]" % flow,
 			"The professional's zone. Relief fills at the ideal rate, no penalty. Keep the needle here. Note that the band will move, narrow, and drift as conditions change — adapt to it."),
-		_li("[c=%s]RED ZONE (high)[/c]" % HEX_RED,
+		_li("[c=%s]RED ZONE (high)[/c]" % red,
 			"Maximum output, roughly one-and-a-half times Flow — and where things go wrong. Linger and you will SPLASH (a Cleanliness event) and make NOISE (a Discretion event). A brief, deliberate dip into the red is a legitimate tactic. Camping there is how amateurs are identified."),
 		"\n",
 
 		_h("II.  THE FOUR GAUGES"),
 		"Every sitting is measured on four instruments. For all four, [b]fuller is better.[/b]\n",
-		_li("[c=%s]RELIEF[/c]" % HEX_FLOW,
+		_li("[c=%s]RELIEF[/c]" % flow,
 			"Your progress, and the win condition. Reach 100% and you are free."),
-		_li("[c=%s]COMPOSURE[/c]" % HEX_AMBER,
+		_li("[c=%s]COMPOSURE[/c]" % amber,
 			"Your clock and your nerve. It only ever falls. Empty it and you lose your composure entirely — a panic failure. It drains faster while you idle in the dead zone or strain in the red."),
-		_li("[c=%s]DISCRETION[/c]" % HEX_AMBER,
+		_li("[c=%s]DISCRETION[/c]" % amber,
 			"The sum of your NOISE and your SMELL. Keep it high and you go unnoticed. Let it fall past the detection threshold and you are, clinically speaking, caught — with consequences appropriate to the venue."),
-		_li("[c=%s]CLEANLINESS[/c]" % HEX_AMBER,
+		_li("[c=%s]CLEANLINESS[/c]" % amber,
 			"The state of the scene. Splashback and mess erode it. It rarely ends the run outright, but it ends your reputation — and your star rating."),
 		"\n",
 
@@ -208,7 +211,7 @@ func _manual_text() -> String:
 		_li("[b]THE SMELL CLOUD[/b]",
 			"Not scheduled — earned, by pushing hard in the red. A visible cloud rises. [b]Swipe[/b] to waft it away before it is noticed. The real lesson is upstream: push greedy and you manufacture your own problems."),
 		_li("[b]COVER & HUSH[/b]",
-			("Some venues police every sound; watch the banner and match your Push to it. In the [b]Church[/b] the room is silent — wait for an organ swell ([c=%s]COVER[/c]) to bear down, and ride low through the [c=%s]SILENCE[/c] between. The [b]Rave[/b] inverts it: the [c=%s]BASS[/c] hides everything, so push freely until a [c=%s]HUSH[/c] falls and you are exposed. Same rule either way — [b]push while it is safe, ease off while exposed[/b]. Bearing down while exposed is heard, and Discretion bleeds fast." % [HEX_FLOW, HEX_RED, HEX_FLOW, HEX_RED])),
+			("Some venues police every sound; watch the banner and match your Push to it. In the [b]Church[/b] the room is silent — wait for an organ swell ([c=%s]COVER[/c]) to bear down, and ride low through the [c=%s]SILENCE[/c] between. The [b]Rave[/b] inverts it: the [c=%s]BASS[/c] hides everything, so push freely until a [c=%s]HUSH[/c] falls and you are exposed. Same rule either way — [b]push while it is safe, ease off while exposed[/b]. Bearing down while exposed is heard, and Discretion bleeds fast." % [flow, red, flow, red])),
 		"\n",
 
 		_h("IV.  CONTROLS"),
@@ -220,7 +223,7 @@ func _manual_text() -> String:
 		_li("[b]H / Esc[/b]", "Open or close this manual."),
 		_li("[b]B[/b]", "Toggle the autopilot (demonstration only)."),
 		"\n",
-		"[c=%s]This manual is provisional and expands as new venues and hazards enter service. Sit with confidence.[/c]" % HEX_DIM,
+		"[c=%s]This manual is provisional and expands as new venues and hazards enter service. Sit with confidence.[/c]" % dim,
 	])
 	return s.replace("[c=", "[color=#").replace("[/c]", "[/color]")
 

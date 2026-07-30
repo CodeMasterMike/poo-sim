@@ -13,12 +13,13 @@ extends Control
 
 signal level_chosen(index: int)
 
-const C_DIM := Color(0.07, 0.08, 0.10, 0.92)
-const C_PANEL := Color(0.13, 0.15, 0.19)
-const C_BORDER := Color(0.30, 0.34, 0.42)
-const C_TITLE := Color(0.96, 0.92, 0.42)
-const C_TEXT := Color(0.90, 0.93, 0.98)
-const C_ACTIVE := Color(0.24, 0.82, 0.40)
+# --- Colours: aliased from the locked Palette (docs/specs/poo-sim-style-guide.html). ---
+const C_DIM := Palette.SCRIM
+const C_PANEL := Palette.PANEL
+const C_BORDER := Palette.BORDER
+const C_TITLE := Palette.GOAL
+const C_TEXT := Palette.TEXT
+const C_ACTIVE := Palette.FLOW
 
 var _names: PackedStringArray = []
 var _current: int = 0

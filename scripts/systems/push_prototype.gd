@@ -33,20 +33,22 @@ enum LevelKind { GREYBOX, CHURCH, RAVE }
 ## Toggle at runtime with B. Off in normal play.
 @export var auto_play: bool = false
 
-# --- Colors (grey-box palette, meter language from the UI spec) ---
-const BG := Color(0.09, 0.10, 0.12)
-const PANEL := Color(0.15, 0.17, 0.21)
-const DEAD := Color(0.19, 0.23, 0.29)
-const FLOW := Color(0.24, 0.82, 0.40)
-const FLOW_DIM := Color(0.15, 0.42, 0.25)
-const RED := Color(0.92, 0.30, 0.25)
-const RED_DIM := Color(0.42, 0.19, 0.19)
-const AMBER := Color(0.95, 0.75, 0.25)
-const ORANGE := Color(0.98, 0.55, 0.15)
-const NEEDLE := Color(0.98, 0.99, 1.0)
-const TEXT := Color(0.92, 0.94, 0.98)
-const TEXT_DIM := Color(0.58, 0.63, 0.71)
-const GOAL := Color(0.96, 0.92, 0.42)
+# --- Colours: aliased from the locked Palette (docs/specs/poo-sim-style-guide.html)
+#     so every screen draws from one source and can't drift. Local names keep the
+#     draw code terse. ---
+const BG := Palette.BG
+const PANEL := Palette.PANEL
+const DEAD := Palette.DEAD
+const FLOW := Palette.FLOW
+const FLOW_DIM := Palette.FLOW_DIM
+const RED := Palette.RED
+const RED_DIM := Palette.RED_DIM
+const AMBER := Palette.AMBER
+const ORANGE := Palette.ORANGE
+const NEEDLE := Palette.NEEDLE
+const TEXT := Palette.TEXT
+const TEXT_DIM := Palette.TEXT_DIM
+const GOAL := Palette.GOAL
 
 # --- Sim (the model + systems; the view only reads state) ---
 var _level: LevelDef
