@@ -52,7 +52,25 @@ The room is at the edge of legibility on purpose — pillar 2 and §6 both say t
 
 `FLOOR_Y` (0.69) is the shared ground plane, set level with the bottom of the two columns so the whole HUD stands on the same floor. It replaced the earlier decorative floor line at 0.80, which sat below the columns and grounded nothing. Everything under `FLOOR_Y` is HUD apron: column values, prompt band, footers.
 
-He also carries a little life — an idle breathing bob, and a hunch while `_holding_now()`. Both are read off the input buffer and never fed back into the sim.
+### Poses
+
+Three, all view-only — read off the input buffer and the phase, never fed back into the sim:
+
+| State | Pose |
+|---|---|
+| Idle | a slow breathing bob |
+| `_holding_now()` | hunched forward, head down |
+| `Phase.LOST` | slumped — head dropped furthest and lolled off-centre, shoulders less, hips not at all, arms off the knees and hanging |
+
+The slump curves rather than translates on purpose: dropping every joint by the same amount just reads as a shorter man. Beaten posture is a curve.
+
+On the fail screen he is **re-drawn on top of the scrim**. Behind an `a = 0.80` wash of black the slump is invisible, and the beat is worth more than the dimming. The "tap · press R to retry" line moved from `h * 0.55` to `h * 0.76` to clear his head — at 0.55 it ran straight through it.
+
+### Stink lines (`_draw_stink()`)
+
+§5 names the squiggle as the sanctioned comedic flourish, so the Smell hazard gets one: three wavering lines rising out of the sitter through the clear gap above him, faint and slow while the cloud is drifting in, bright and fast once it's on you — the same telegraph → active read the prompt band and the gauge already use.
+
+Two details that make them work: the wobble is scaled by height so the lines stay anchored at the base and only writhe as they rise, and they fade out toward the tip via `draw_polyline_colors` — a squiggle that simply stops looks cut off. They live between the columns and stop short of the pills, so they never cross a meter.
 
 ## Godot `_draw()` techniques for the port
 

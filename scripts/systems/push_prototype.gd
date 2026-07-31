@@ -342,6 +342,7 @@ func _draw() -> void:
 
 	_draw_backdrop(w, h)
 	_draw_sitter(w, h)
+	_draw_stink(w, h)
 
 	# The venue name lives in the LEVEL button (top-left); keep the title clean.
 	_text(font, "The Push", 0, int(h * 0.045), w, int(h * 0.026), TEXT)
@@ -452,10 +453,12 @@ func _draw_sitter(w: float, h: float) -> void:
 	var figure := PANEL.lightened(0.20)
 	var figure_sh := PANEL.darkened(0.10)
 
-	# Idle breathing, and a hunch while pushing. View-only: read off the input
-	# buffer, never fed back into the sim.
-	var bob := sin(_t * 2.2) * s * 0.008
-	var strain := s * 0.045 if _holding_now() else 0.0
+	# Three poses, all view-only — read off the input buffer and the phase, never
+	# fed back into the sim. Idle breathes; pushing hunches; losing slumps.
+	var lost: bool = _state != null and _state.phase == SimState.Phase.LOST
+	var bob := sin(_t * (0.9 if lost else 2.2)) * s * (0.004 if lost else 0.008)
+	var strain := s * 0.045 if (_holding_now() and not lost) else 0.0
+	var slump := s * 0.15 if lost else 0.0
 
 	# Contact shadow, so he sits on the floor instead of hovering over it.
 	_rrect(Rect2(bx - s * 0.30, by - s * 0.035, s * 0.60, s * 0.07), Color(0.0, 0.0, 0.0, 0.35), 5)
@@ -473,17 +476,28 @@ func _draw_sitter(w: float, h: float) -> void:
 	_rrect(Rect2(bx - s * 0.27, by - s * 0.48, s * 0.54, s * 0.05), cera_sh, 3)
 
 	# --- the man, hunched forward, elbows on knees ---
-	var head := Vector2(bx, by - s * 0.86 + strain * 0.9 + bob)
-	var neck := Vector2(bx, by - s * 0.68 + strain * 0.7 + bob)
+	# The slump drops the head furthest, the shoulders less, the hips not at all,
+	# and lolls the head off-centre — a straight-down drop just reads as a shorter
+	# man. Beaten posture is a curve, not a translation.
+	var head := Vector2(bx + slump * 0.55, by - s * 0.86 + strain * 0.9 + slump + bob)
+	var neck := Vector2(bx + slump * 0.25, by - s * 0.68 + strain * 0.7 + slump * 0.75 + bob)
 	var hip := Vector2(bx, by - s * 0.48)
-	var shoulder_l := Vector2(bx - s * 0.16, by - s * 0.64 + strain * 0.5 + bob)
-	var shoulder_r := Vector2(bx + s * 0.16, by - s * 0.64 + strain * 0.5 + bob)
-	var elbow_l := Vector2(bx - s * 0.21, by - s * 0.48)
-	var elbow_r := Vector2(bx + s * 0.21, by - s * 0.48)
+	var shoulder_l := Vector2(bx - s * 0.16 + slump * 0.10,
+			by - s * 0.64 + strain * 0.5 + slump * 0.60 + bob)
+	var shoulder_r := Vector2(bx + s * 0.16 + slump * 0.10,
+			by - s * 0.64 + strain * 0.5 + slump * 0.60 + bob)
+	var elbow_l := Vector2(bx - s * 0.21, by - s * 0.48 + slump * 0.55)
+	var elbow_r := Vector2(bx + s * 0.21, by - s * 0.48 + slump * 0.55)
 	var knee_l := Vector2(bx - s * 0.15, by - s * 0.40)
 	var knee_r := Vector2(bx + s * 0.15, by - s * 0.40)
 	var foot_l := Vector2(bx - s * 0.22, by - s * 0.03)
 	var foot_r := Vector2(bx + s * 0.22, by - s * 0.03)
+	# Beaten, the arms stop bracing on the knees and just hang.
+	var hand_l := knee_l
+	var hand_r := knee_r
+	if lost:
+		hand_l = Vector2(bx - s * 0.26, by - s * 0.09)
+		hand_r = Vector2(bx + s * 0.26, by - s * 0.09)
 
 	# Every outline is laid down before any fill, so he reads as one silhouette
 	# with a single thick outline rather than a stack of separately-inked tubes.
@@ -493,7 +507,7 @@ func _draw_sitter(w: float, h: float) -> void:
 		[hip, neck, s * 0.095],
 		[shoulder_l, shoulder_r, s * 0.070],
 		[shoulder_l, elbow_l, s * 0.042], [shoulder_r, elbow_r, s * 0.042],
-		[elbow_l, knee_l, s * 0.038], [elbow_r, knee_r, s * 0.038],
+		[elbow_l, hand_l, s * 0.038], [elbow_r, hand_r, s * 0.038],
 		[head, head, s * 0.115],
 	]
 	for limb in limbs:
@@ -504,6 +518,47 @@ func _draw_sitter(w: float, h: float) -> void:
 	_limb(hip + Vector2(-s * 0.052, 0.0), neck + Vector2(-s * 0.052, 0.0), s * 0.046, figure_sh)
 	_limb(head + Vector2(-s * 0.040, s * 0.008), head + Vector2(-s * 0.040, s * 0.008),
 			s * 0.068, figure_sh)
+
+
+## Stink lines. §5 names the squiggle as the sanctioned comedic flourish, so the
+## Smell hazard gets one: three wavering lines rising out of the sitter through
+## the clear gap above him. Faint and slow while the cloud is still drifting in,
+## bright and fast once it's on you — the same telegraph→active read the prompt
+## band and the gauge already use.
+##
+## They live between the columns and stop short of the pills, so they never cross
+## a meter. Drawn as part of the scene, before the HUD.
+func _draw_stink(w: float, h: float) -> void:
+	if _state.phase != SimState.Phase.PLAYING:
+		return
+	var slot := Hazards.find(_state, SimEvent.Kind.SMELL)
+	if slot == null:
+		return
+	var arrived := slot.phase == HazardSlot.Phase.ACTIVE
+
+	var bx := w * 0.557
+	var base := h * 0.47                    # just clear of his crown
+	var tip := h * 0.25
+	var speed := 5.2 if arrived else 2.4
+	var peak := 0.85 if arrived else 0.38
+	var col := Color(0.55, 0.66, 0.24)      # the smell cloud's own green
+	var steps := 16
+
+	for i in 3:
+		var ox := (float(i) - 1.0) * w * 0.045
+		var pts := PackedVector2Array()
+		var cols := PackedColorArray()
+		for k in steps + 1:
+			var f := float(k) / float(steps)
+			# The wobble is scaled by f so the line stays anchored at the base
+			# and only writhes as it rises.
+			var wobble := sin(f * TAU * 1.5 + _t * speed + float(i) * 2.1) * w * 0.020 * f
+			pts.append(Vector2(bx + ox + wobble, base + (tip - base) * f))
+			# Fade out towards the tip: a squiggle that just stops looks cut off.
+			var c := col
+			c.a = peak * (1.0 - f) * (1.0 - f)
+			cols.append(c)
+		draw_polyline_colors(pts, cols, maxf(2.0, w * 0.006), true)
 
 
 ## One round-capped bar. draw_line has no round caps, so each end gets a circle.
@@ -850,9 +905,15 @@ func _draw_overlay(font: Font, w: float, h: float) -> void:
 	draw_rect(Rect2(-40, -40, w + 80, h + 80), Color(0.03, 0.04, 0.05, 0.80))
 
 	if _state.phase == SimState.Phase.LOST:
+		# Re-draw him ON TOP of the scrim. He is the fail state, and behind an
+		# 0.80 wash of black the slump is invisible — the beat is worth more than
+		# the dimming. The text lands over him and still reads: he is a flat dark
+		# silhouette, which is exactly what text wants behind it.
+		_draw_sitter(w, h)
 		_text(font, "COULDN'T HOLD IT", 0, int(h * 0.40), w, int(h * 0.050), RED)
 		_text(font, "Composure ran out.", 0, int(h * 0.47), w, int(h * 0.026), TEXT)
-		_text(font, "tap  ·  press R to retry", 0, int(h * 0.55), w, int(h * 0.024), TEXT_DIM)
+		# Below his feet, not across his head — the slump is the picture here.
+		_text(font, "tap  ·  press R to retry", 0, int(h * 0.76), w, int(h * 0.024), TEXT_DIM)
 		return
 
 	# WON — score from the four meters.

@@ -118,12 +118,13 @@ For the artist and engineer, the discrete pieces this screen needs.
 > `_draw()` — see [the vector pass](poo-sim-vector-pass.md):
 >
 > - Composure bar, Discretion/Cleanliness pills, Force gauge, Relief meter, prompt band.
-> - Of the scene layers: a tiled cubicle wall and floor, and a seated character + toilet —
->   one pose, with an idle bob and a hunch while pushing, not yet a rig with tense/fail poses.
+> - Of the scene layers: a tiled cubicle wall and floor, and a seated character + toilet with
+>   three poses — idle, tense (while pushing) and fail (the slump on `Phase.LOST`).
+> - Of the hazard actors: the Smell's stink-line squiggles.
 >
 > Still unillustrated, and what a full scene-art pass has to produce: swappable per-level
-> environments, the character rig's other poses, every hazard actor (door + latch, neighbour
-> shadow, waiter shadow, bowl/splash FX, phone), and the results card.
+> environments, the rest of the hazard actors (door + latch, neighbour shadow, waiter shadow,
+> bowl/splash FX, phone), and the results card.
 
 - HUD: pause, mute, level-label plate.
 - Composure bar with 3-stage color states.
