@@ -488,8 +488,12 @@ func _draw_sitter(w: float, h: float) -> void:
 	var strain := h * 0.022 if (_holding_now() and not lost) else 0.0
 	var slump := h * 0.030 if lost else 0.0
 
-	# --- the cistern, behind him and just wider than his shoulders so it frames
-	# him without becoming a slab in its own right ---
+	# --- the toilet's back: cistern, then the neck that carries it down onto the
+	# bowl. The neck is not decoration — without it the cistern and the bowl were
+	# positioned independently and the tank floated with a screen-height's worth
+	# of nothing between them. It runs behind his torso, which is where the back
+	# of a toilet actually is, and overlaps the bowl's top edge so they join. ---
+	_rrect(Rect2(cx - w * 0.100, h * 0.310, w * 0.20, h * 0.195), cera_sh, 6, ink, int(iw))
 	_rrect(Rect2(cx - w * 0.135, h * 0.203, w * 0.27, h * 0.125), cera, 8, ink, int(iw))
 	_rrect(Rect2(cx - w * 0.122, h * 0.286, w * 0.244, h * 0.034), cera_sh, 5)
 	_rrect(Rect2(cx - w * 0.100, h * 0.222, w * 0.075, h * 0.018), cera_sh, 4)  # the flush plate
@@ -516,14 +520,7 @@ func _draw_sitter(w: float, h: float) -> void:
 		[shoulder_l, elbow_l, w * 0.032], [shoulder_r, elbow_r, w * 0.032],
 		[head, head, w * 0.070],
 	]
-	for limb in limbs:
-		_limb(limb[0], limb[1], limb[2] + iw, ink)
-	for limb in limbs:
-		_limb(limb[0], limb[1], limb[2], figure)
-	# The one shadow tone (§5: flat + 2-tone, never a gradient) — his left side.
-	_limb(hip + Vector2(-w * 0.038, 0.0), neck + Vector2(-w * 0.038, 0.0), w * 0.034, figure_sh)
-	_limb(head + Vector2(-w * 0.026, h * 0.004), head + Vector2(-w * 0.026, h * 0.004),
-			w * 0.042, figure_sh)
+	_shade_limbs(limbs, ink, figure, figure_sh, iw)
 
 
 ## Knees and forearms, drawn AFTER the bowl so they come back over its front rim.
@@ -553,10 +550,7 @@ func _draw_sitter_legs(w: float, h: float) -> void:
 	var limbs := [
 		[elbow_l, hand_l, w * 0.028], [elbow_r, hand_r, w * 0.028],
 	]
-	for limb in limbs:
-		_limb(limb[0], limb[1], limb[2] + iw, ink)
-	for limb in limbs:
-		_limb(limb[0], limb[1], limb[2], figure)
+	_shade_limbs(limbs, ink, figure, PANEL.darkened(0.10), iw)
 
 
 func _scene_cx(w: float) -> float:
@@ -749,6 +743,30 @@ func _draw_stink(w: float, h: float) -> void:
 			c.a = peak * (1.0 - f) * (1.0 - f)
 			cols.append(c)
 		draw_polyline_colors(pts, cols, maxf(2.0, w * 0.006), true)
+
+
+## Ink, shadow, then lit core — the three passes that turn a list of limbs into
+## one cel-shaded silhouette. Every outline is laid down before any fill so he
+## reads as a single shape rather than a stack of separately-inked tubes.
+##
+## The shadow is the §5 "one shadow tone", applied as a RIM: the whole figure is
+## painted in the shadow tone, then the lit colour goes back on top, shrunk and
+## shifted up-and-right. It used to be a couple of hand-placed blobs offset
+## inside the torso and head, which on a narrow torso covered half of it and read
+## as a stripe down his front rather than as light coming from anywhere.
+##
+## The shrink and the offset are both proportional to each limb's own radius. A
+## fixed offset works on the torso and pushes the lit core straight out through
+## the outline on something as thin as a forearm.
+func _shade_limbs(limbs: Array, ink: Color, lit: Color, shadow: Color, iw: float) -> void:
+	for limb in limbs:
+		_limb(limb[0], limb[1], limb[2] + iw, ink)
+	for limb in limbs:
+		_limb(limb[0], limb[1], limb[2], shadow)
+	for limb in limbs:
+		var r: float = limb[2]
+		var off := Vector2(r * 0.14, -r * 0.10)
+		_limb(limb[0] + off, limb[1] + off, r * 0.80, lit)
 
 
 ## One round-capped bar. draw_line has no round caps, so each end gets a circle.

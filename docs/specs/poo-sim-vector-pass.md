@@ -116,6 +116,20 @@ The bowl is drawn as a cutaway across his lap, so it honestly occludes his legs 
 
 Torso, head, arms, hands resting on the rim. That's it. The bowl is doing the work of saying "seated".
 
+### Shading him: a rim, not a blob (`_shade_limbs()`)
+
+The §5 "one shadow tone" is applied by painting the **whole** figure in the shadow tone and then putting the lit colour back on top, shrunk and shifted up-and-right. That leaves a shadow rim thickest on the lower-left of every limb.
+
+The first attempt hand-placed two shadow blobs, offset inside the torso and the head. On a torso only `w * 0.144` wide the strip covered half of it and read as a panel down his front rather than as light coming from anywhere.
+
+Both the shrink and the offset are **proportional to each limb's own radius**. A fixed offset is fine on the torso and pushes the lit core straight out through the outline on something as thin as a forearm.
+
+### The toilet needs a neck
+
+The cistern and the bowl were originally positioned independently — the cistern sized to frame his head, the bowl to fit the layout — and nothing joined them, so the tank floated with roughly `h * 0.16` of empty background between it and the bowl.
+
+`_draw_sitter()` now draws a narrower back column from under the cistern down past the bowl's top edge. It runs behind his torso, which is where the back of a toilet actually is, and it has to overlap the bowl rather than just meet it, or the seam shows.
+
 ### Stink lines (`_draw_stink()`)
 
 §5 names the squiggle as the sanctioned comedic flourish, so the Smell hazard gets one: three wavering lines rising out of the sitter through the clear gap above him, faint and slow while the cloud is drifting in, bright and fast once it's on you — the same telegraph → active read the prompt band and the gauge already use.
