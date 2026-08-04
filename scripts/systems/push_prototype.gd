@@ -981,6 +981,12 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 		_rrect(Rect2(gx - 8, gy - 8, gw + 16, gh + 16), Color(0.55, 0.78, 0.98, 0.16), 16)
 
 	_text(font, "THE PUSH", gx - 8, int(gy - h * 0.018), gw + 16, int(h * 0.016), TEXT_DIM)
+	# The zone name is a claim about what is happening RIGHT NOW, so it goes quiet
+	# once the run is over — a frozen gauge still reading "FLOW" under the results
+	# scrim says the run is live when it isn't. The gauge itself stays, as a
+	# record of where the needle ended up; only the claim goes.
+	if _state.phase != SimState.Phase.PLAYING:
+		return
 	var zname: String = ["DEAD ZONE", "FLOW", "RED ZONE"][zone]
 	var zlabel_col := zcol
 	if Hazards.relief_stalled(_state):
