@@ -66,11 +66,38 @@ The slump curves rather than translates on purpose: dropping every joint by the 
 
 On the fail screen he is **re-drawn on top of the scrim**. Behind an `a = 0.80` wash of black the slump is invisible, and the beat is worth more than the dimming. The "tap · press R to retry" line moved from `h * 0.55` to `h * 0.76` to clear his head — at 0.55 it ran straight through it.
 
+### The bowl is the Relief meter (`_draw_bowl()` / `_draw_deposits()`)
+
+The abstract green Relief tube is gone. The bowl replaced it, and the layout moved to make room: **THE PUSH** went hard against the left edge (it's only ever read for the needle's *height*, so it gives up width cheaply) and the man and bowl took the rest.
+
+What's in the bowl is what you produced. One layer per `100/DEPOSITS` of Relief, each layer as wide as the needle was **at the moment it came out** — so a clean run builds an even column and a run spent bouncing off the red zone builds a lumpy mess. The bowl is the meter and the record of the run at the same time.
+
+**Nothing here calls `randf()`, and that's load-bearing.** Every value is a pure function of `(layer index, match_seed)` or of the width sampled when the layer was laid down. Two independent reasons:
+
+- `_draw()` re-runs every frame. Live randomness would make the whole pile crawl and shimmer instead of sitting there.
+- A seeded replay — and the ghost/1v1 architecture the sim is built to allow — has to redraw the identical pile. Live randomness breaks that.
+
+The sampling happens in `_process()`, not `_draw()`, because the needle has to be read at the instant the layer is produced and `_draw()` must stay a pure function of state. `_deposits` is view state, but it's still deterministic, because Relief is.
+
+`DEPOSITS` is deliberately low (30). Finer layers are a truer record but render as thin stacked planks; the chunkier the layer, the more it reads as a lump.
+
+Three colours were added to `Palette` — `MATTER`, `MATTER_DARK`, `WATER` — rather than inlined as `Color()` literals, per the palette's own no-drift rule. They're documented in the style guide under a new *Representational* heading: they depict a thing rather than signal a state, and sit outside the §3 colour grammar entirely.
+
+### What the man's pose had to give up
+
+The bowl is drawn as a cutaway across his lap, so it honestly occludes his legs — and the legs kept fighting it:
+
+- **Thighs spread over the rim** read as a shelf he was sitting behind, and covered the gold goal line.
+- **Knees as discs beside the basin** read as wheels.
+- **Knees hung off the hands** merged hand and knee into one lump and made the whole arm read as a scarecrow's.
+
+Torso, head, arms, hands resting on the rim. That's it. The bowl is doing the work of saying "seated".
+
 ### Stink lines (`_draw_stink()`)
 
 §5 names the squiggle as the sanctioned comedic flourish, so the Smell hazard gets one: three wavering lines rising out of the sitter through the clear gap above him, faint and slow while the cloud is drifting in, bright and fast once it's on you — the same telegraph → active read the prompt band and the gauge already use.
 
-Two details that make them work: the wobble is scaled by height so the lines stay anchored at the base and only writhe as they rise, and they fade out toward the tip via `draw_polyline_colors` — a squiggle that simply stops looks cut off. They live between the columns and stop short of the pills, so they never cross a meter.
+Two details that make them work: the wobble is scaled by height so the lines stay anchored at the base and only writhe as they rise, and they fade out toward the tip via `draw_polyline_colors` — a squiggle that simply stops looks cut off. Four lines, two either side of him: he's centred now, so a centre squiggle would just run up his chest.
 
 ## Godot `_draw()` techniques for the port
 

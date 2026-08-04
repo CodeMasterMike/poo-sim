@@ -117,10 +117,15 @@ For the artist and engineer, the discrete pieces this screen needs.
 > **Already drawn in code.** All of these are painted procedurally in `push_prototype.gd`
 > `_draw()` — see [the vector pass](poo-sim-vector-pass.md):
 >
-> - Composure bar, Discretion/Cleanliness pills, Force gauge, Relief meter, prompt band.
+> - Composure bar, Discretion/Cleanliness pills, Force gauge, prompt band.
 > - Of the scene layers: a tiled cubicle wall and floor, and a seated character + toilet with
 >   three poses — idle, tense (while pushing) and fail (the slump on `Phase.LOST`).
 > - Of the hazard actors: the Smell's stink-line squiggles.
+>
+> **The Relief meter no longer exists as a separate component.** The bowl is the meter: it fills
+> with what the player produced, one layer per few percent, each layer as wide as the needle was
+> when it came out. The Force gauge moved to the left edge to make room. Anyone costing out this
+> screen should budget a bowl-with-contents, not a vertical bar.
 >
 > Still unillustrated, and what a full scene-art pass has to produce: swappable per-level
 > environments, the rest of the hazard actors (door + latch, neighbour shadow, waiter shadow,

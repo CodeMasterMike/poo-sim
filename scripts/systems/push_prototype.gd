@@ -49,11 +49,20 @@ const NEEDLE := Palette.NEEDLE
 const TEXT := Palette.TEXT
 const TEXT_DIM := Palette.TEXT_DIM
 const GOAL := Palette.GOAL
+const MATTER := Palette.MATTER
+const MATTER_DARK := Palette.MATTER_DARK
+const WATER := Palette.WATER
 
-## The room's ground plane, as a fraction of screen height. Level with the bottom
-## of the gauge and relief columns, so the whole HUD stands on the same floor and
-## the sitter has something to sit on. Everything below it is HUD apron.
-const FLOOR_Y := 0.69
+## The room's ground plane, as a fraction of screen height. Sits below both the
+## gauge and the bowl so the whole scene stands on one floor. Everything under it
+## is HUD apron: the prompt band and the footer readouts.
+const FLOOR_Y := 0.735
+
+## How many layers the bowl fills in. One deposit per 100/DEPOSITS percent of
+## Relief, so this is the resolution of the record the bowl keeps of your run.
+## Kept deliberately low: finer layers are a truer record but they render as thin
+## stacked planks, and the chunkier the layer the more it reads as a lump.
+const DEPOSITS: int = 30
 
 # --- Sim (the model + systems; the view only reads state) ---
 var _level: LevelDef
@@ -88,6 +97,12 @@ var _splash_flash: float = 0.0
 var _last_splash_pulse: int = 0
 var _milestone_flash: float = 0.0
 var _next_milestone: int = 25
+## What came out, one entry per 100/DEPOSITS of Relief, each holding the needle
+## height at the moment that layer was produced. Pure view state — the sim knows
+## nothing about it — but it is still deterministic, because Relief is, so a
+## replay of the same seed rebuilds the identical pile.
+var _deposits: PackedFloat32Array = PackedFloat32Array()
+var _next_deposit: int = 1
 var _shake: Vector2 = Vector2.ZERO
 var _last_hazard_pulse: int = 0
 var _knock_flash: float = 0.0
@@ -229,6 +244,14 @@ func _process(delta: float) -> void:
 		_milestone_flash = 0.5
 		_next_milestone += 25
 
+	# Lay down what came out. Sampled HERE, not in _draw(): the needle has to be
+	# read at the moment the layer is produced, and _draw() must stay a pure
+	# function of state.
+	while _deposits.size() < DEPOSITS \
+			and _state.relief >= float(_next_deposit) * (100.0 / float(DEPOSITS)):
+		_deposits.append(clampf(_state.needle, 0.0, 1.0))
+		_next_deposit += 1
+
 	_splash_flash = maxf(0.0, _splash_flash - delta)
 	_milestone_flash = maxf(0.0, _milestone_flash - delta)
 	var shake_mag := 0.0
@@ -315,6 +338,8 @@ func _reset() -> void:
 	_last_splash_pulse = 0
 	_milestone_flash = 0.0
 	_next_milestone = 25
+	_deposits = PackedFloat32Array()
+	_next_deposit = 1
 	_shake = Vector2.ZERO
 	_last_hazard_pulse = 0
 	_knock_flash = 0.0
@@ -340,8 +365,13 @@ func _draw() -> void:
 	var font := ThemeDB.fallback_font
 	draw_set_transform(_shake, 0.0, Vector2.ONE)
 
+	# The scene, back to front: he sits behind the bowl, the bowl occludes his
+	# lap so you can see into it, then his knees and hands come back over the
+	# front rim. The stink rises off the bowl last.
 	_draw_backdrop(w, h)
 	_draw_sitter(w, h)
+	_draw_bowl(w, h)
+	_draw_sitter_legs(w, h)
 	_draw_stink(w, h)
 
 	# The venue name lives in the LEVEL button (top-left); keep the title clean.
@@ -350,7 +380,7 @@ func _draw() -> void:
 	_draw_meters_top(font, w, h)
 	_draw_quiet_status(font, w, h)
 	_draw_gauge(font, w, h)
-	_draw_relief(font, w, h)
+	_draw_relief_readout(font, w, h)
 	_draw_smell(w, h)
 	_draw_buzz(w, h)
 	_draw_prompt(font, w, h)
@@ -436,16 +466,14 @@ func _draw_room(w: float, h: float) -> void:
 ## palette (AMBER, ORANGE, RED, GOAL) already means something load-bearing. So
 ## he is built from the neutral surface tones and reads as a shape.
 ##
-## Drawn before the HUD, in the gap between the gauge and the relief tube, so
-## the two columns crop his edges and he sits convincingly behind them.
-## He is drawn FRONT-ON, not in profile. A side view needs room for knees and a
-## cistern in a line, and the gap between the columns is only about w*0.166 wide;
-## front-on he is barely wider than his own shoulders and fits it almost exactly,
-## so the columns frame him instead of burying him.
+## He is drawn FRONT-ON, not in profile: a side view puts the knees and cistern
+## in a line and needs width the layout can't spare, and front-on the bowl can be
+## drawn straight over his lap as a cutaway so the contents are visible.
+##
+## This function is his UPPER body only — everything behind the bowl. His knees
+## and hands come back over the front rim in _draw_sitter_legs().
 func _draw_sitter(w: float, h: float) -> void:
-	var s := h * 0.200                      # total height, crown to floor
-	var bx := w * 0.557                     # the centreline of the gap between the columns
-	var by := h * FLOOR_Y
+	var cx := _scene_cx(w)
 	var ink := BG.darkened(0.62)
 	var iw := maxf(2.0, w * 0.005)          # §5: outlines are ~0.5% of screen width
 	var cera := DEAD.lightened(0.28)
@@ -456,68 +484,178 @@ func _draw_sitter(w: float, h: float) -> void:
 	# Three poses, all view-only — read off the input buffer and the phase, never
 	# fed back into the sim. Idle breathes; pushing hunches; losing slumps.
 	var lost: bool = _state != null and _state.phase == SimState.Phase.LOST
-	var bob := sin(_t * (0.9 if lost else 2.2)) * s * (0.004 if lost else 0.008)
-	var strain := s * 0.045 if (_holding_now() and not lost) else 0.0
-	var slump := s * 0.15 if lost else 0.0
+	var bob := sin(_t * (0.9 if lost else 2.2)) * h * (0.002 if lost else 0.004)
+	var strain := h * 0.022 if (_holding_now() and not lost) else 0.0
+	var slump := h * 0.030 if lost else 0.0
 
-	# Contact shadow, so he sits on the floor instead of hovering over it.
-	_rrect(Rect2(bx - s * 0.30, by - s * 0.035, s * 0.60, s * 0.07), Color(0.0, 0.0, 0.0, 0.35), 5)
+	# --- the cistern, behind him and just wider than his shoulders so it frames
+	# him without becoming a slab in its own right ---
+	_rrect(Rect2(cx - w * 0.135, h * 0.203, w * 0.27, h * 0.125), cera, 8, ink, int(iw))
+	_rrect(Rect2(cx - w * 0.122, h * 0.286, w * 0.244, h * 0.034), cera_sh, 5)
+	_rrect(Rect2(cx - w * 0.100, h * 0.222, w * 0.075, h * 0.018), cera_sh, 4)  # the flush plate
 
-	# --- the toilet: cistern behind him, then the bowl and pedestal ---
-	# The bowl is deliberately wider than his hips and the cistern wider than his
-	# shoulders, so both stay visible past his silhouette. That overhang is the
-	# whole reason the pose reads as "on a toilet" rather than "standing about".
-	_rrect(Rect2(bx - s * 0.22, by - s * 1.02, s * 0.44, s * 0.46), cera, 6, ink, int(iw))
-	_rrect(Rect2(bx - s * 0.20, by - s * 0.74, s * 0.40, s * 0.16), cera_sh, 4)  # its shadow tone
-	_rrect(Rect2(bx - s * 0.17, by - s * 0.95, s * 0.14, s * 0.06), cera_sh, 3)  # the flush plate
-	_rrect(Rect2(bx - s * 0.16, by - s * 0.34, s * 0.32, s * 0.34), cera_sh, 5, ink, int(iw))
-	_rrect(Rect2(bx - s * 0.31, by - s * 0.50, s * 0.62, s * 0.20), cera, 9, ink, int(iw))
-	# The seat, as its own darker ring on top of the bowl (§5: flat, 2-tone).
-	_rrect(Rect2(bx - s * 0.27, by - s * 0.48, s * 0.54, s * 0.05), cera_sh, 3)
-
-	# --- the man, hunched forward, elbows on knees ---
+	# --- the man ---
 	# The slump drops the head furthest, the shoulders less, the hips not at all,
 	# and lolls the head off-centre — a straight-down drop just reads as a shorter
 	# man. Beaten posture is a curve, not a translation.
-	var head := Vector2(bx + slump * 0.55, by - s * 0.86 + strain * 0.9 + slump + bob)
-	var neck := Vector2(bx + slump * 0.25, by - s * 0.68 + strain * 0.7 + slump * 0.75 + bob)
-	var hip := Vector2(bx, by - s * 0.48)
-	var shoulder_l := Vector2(bx - s * 0.16 + slump * 0.10,
-			by - s * 0.64 + strain * 0.5 + slump * 0.60 + bob)
-	var shoulder_r := Vector2(bx + s * 0.16 + slump * 0.10,
-			by - s * 0.64 + strain * 0.5 + slump * 0.60 + bob)
-	var elbow_l := Vector2(bx - s * 0.21, by - s * 0.48 + slump * 0.55)
-	var elbow_r := Vector2(bx + s * 0.21, by - s * 0.48 + slump * 0.55)
-	var knee_l := Vector2(bx - s * 0.15, by - s * 0.40)
-	var knee_r := Vector2(bx + s * 0.15, by - s * 0.40)
-	var foot_l := Vector2(bx - s * 0.22, by - s * 0.03)
-	var foot_r := Vector2(bx + s * 0.22, by - s * 0.03)
-	# Beaten, the arms stop bracing on the knees and just hang.
-	var hand_l := knee_l
-	var hand_r := knee_r
-	if lost:
-		hand_l = Vector2(bx - s * 0.26, by - s * 0.09)
-		hand_r = Vector2(bx + s * 0.26, by - s * 0.09)
+	var head := Vector2(cx + slump * 0.55, h * 0.272 + strain * 0.9 + slump + bob)
+	var neck := Vector2(cx + slump * 0.25, h * 0.340 + strain * 0.7 + slump * 0.75 + bob)
+	var hip := Vector2(cx, h * 0.470)
+	var shoulder_l := Vector2(cx - w * 0.115 + slump * 0.10,
+			h * 0.352 + strain * 0.5 + slump * 0.60 + bob)
+	var shoulder_r := Vector2(cx + w * 0.115 + slump * 0.10,
+			h * 0.352 + strain * 0.5 + slump * 0.60 + bob)
+	var elbow_l := Vector2(cx - w * 0.160, h * 0.436 + slump * 0.55)
+	var elbow_r := Vector2(cx + w * 0.160, h * 0.436 + slump * 0.55)
 
 	# Every outline is laid down before any fill, so he reads as one silhouette
 	# with a single thick outline rather than a stack of separately-inked tubes.
 	var limbs := [
-		[knee_l, foot_l, s * 0.045], [knee_r, foot_r, s * 0.045],
-		[knee_l, knee_l, s * 0.058], [knee_r, knee_r, s * 0.058],
-		[hip, neck, s * 0.095],
-		[shoulder_l, shoulder_r, s * 0.070],
-		[shoulder_l, elbow_l, s * 0.042], [shoulder_r, elbow_r, s * 0.042],
-		[elbow_l, hand_l, s * 0.038], [elbow_r, hand_r, s * 0.038],
-		[head, head, s * 0.115],
+		[hip, neck, w * 0.072],
+		[shoulder_l, shoulder_r, w * 0.052],
+		[shoulder_l, elbow_l, w * 0.032], [shoulder_r, elbow_r, w * 0.032],
+		[head, head, w * 0.070],
 	]
 	for limb in limbs:
 		_limb(limb[0], limb[1], limb[2] + iw, ink)
 	for limb in limbs:
 		_limb(limb[0], limb[1], limb[2], figure)
 	# The one shadow tone (§5: flat + 2-tone, never a gradient) — his left side.
-	_limb(hip + Vector2(-s * 0.052, 0.0), neck + Vector2(-s * 0.052, 0.0), s * 0.046, figure_sh)
-	_limb(head + Vector2(-s * 0.040, s * 0.008), head + Vector2(-s * 0.040, s * 0.008),
-			s * 0.068, figure_sh)
+	_limb(hip + Vector2(-w * 0.038, 0.0), neck + Vector2(-w * 0.038, 0.0), w * 0.034, figure_sh)
+	_limb(head + Vector2(-w * 0.026, h * 0.004), head + Vector2(-w * 0.026, h * 0.004),
+			w * 0.042, figure_sh)
+
+
+## Knees and forearms, drawn AFTER the bowl so they come back over its front rim.
+## Without them he reads as a torso sunk into a basin; the knees are what say
+## "seated astride this thing".
+func _draw_sitter_legs(w: float, h: float) -> void:
+	var cx := _scene_cx(w)
+	var ink := BG.darkened(0.62)
+	var iw := maxf(2.0, w * 0.005)
+	var figure := PANEL.lightened(0.20)
+	var lost: bool = _state != null and _state.phase == SimState.Phase.LOST
+	var slump := h * 0.030 if lost else 0.0
+
+	# No knees or legs: the bowl is drawn as a cutaway across his lap, so it
+	# honestly occludes them. Drawing them anyway put two detached discs either
+	# side of the basin that read as wheels, and hanging them off the hands made
+	# the arms read as a scarecrow's. Torso, arms and hands on the rim is enough.
+	var elbow_l := Vector2(cx - w * 0.160, h * 0.436 + slump * 0.55)
+	var elbow_r := Vector2(cx + w * 0.160, h * 0.436 + slump * 0.55)
+	# Hands rest on the rim; beaten, they slide off it and just hang.
+	var hand_l := Vector2(cx - w * 0.212, h * 0.508)
+	var hand_r := Vector2(cx + w * 0.212, h * 0.508)
+	if lost:
+		hand_l = Vector2(cx - w * 0.222, h * 0.556)
+		hand_r = Vector2(cx + w * 0.222, h * 0.556)
+
+	var limbs := [
+		[elbow_l, hand_l, w * 0.028], [elbow_r, hand_r, w * 0.028],
+	]
+	for limb in limbs:
+		_limb(limb[0], limb[1], limb[2] + iw, ink)
+	for limb in limbs:
+		_limb(limb[0], limb[1], limb[2], figure)
+
+
+func _scene_cx(w: float) -> float:
+	return w * 0.62
+
+
+## The bowl's outer porcelain, and the cavity you can see into. Kept as two
+## functions' worth of geometry in one place so the readout, the stink lines and
+## the deposits can't drift out of register with the art.
+func _bowl_rect(w: float, h: float) -> Rect2:
+	var cx := _scene_cx(w)
+	return Rect2(cx - w * 0.245, h * 0.487, w * 0.49, h * 0.228)
+
+
+func _bowl_cavity(w: float, h: float) -> Rect2:
+	var cx := _scene_cx(w)
+	return Rect2(cx - w * 0.205, h * 0.505, w * 0.41, h * 0.190)
+
+
+## The bowl — and the whole point of it, which is that Relief is no longer an
+## abstract green tube. What you produced is IN there, laid down layer by layer,
+## each layer as wide as the needle was at the moment it came out. A clean run
+## builds an even column; a run spent bouncing off the red zone builds a lumpy
+## mess. The bowl is the meter and the record at the same time.
+func _draw_bowl(w: float, h: float) -> void:
+	var ink := BG.darkened(0.62)
+	var iw := maxf(2.0, w * 0.005)
+	var cera := DEAD.lightened(0.28)
+	var cera_sh := DEAD.lightened(0.02)
+	var outer := _bowl_rect(w, h)
+	var cav := _bowl_cavity(w, h)
+
+	# Tight at the rim, deeply round at the base — a basin, not a bucket.
+	_rrect_c(outer, cera, int(w * 0.045), int(w * 0.045), int(w * 0.20), int(w * 0.20),
+			ink, int(iw))
+	# The rim, as its own darker ring (§5: flat, 2-tone — no gradient).
+	_rrect(Rect2(outer.position.x + w * 0.018, outer.position.y + h * 0.008,
+			outer.size.x - w * 0.036, h * 0.020), cera_sh, int(h * 0.010))
+	# The cavity: a hole, not a surface. Everything below is inside the bowl.
+	_rrect_c(cav, PANEL.darkened(0.52), int(w * 0.030), int(w * 0.030),
+			int(w * 0.17), int(w * 0.17))
+
+	# Water first, so anything that lands displaces it visually.
+	var water := Rect2(cav.position.x + w * 0.012, cav.end.y - h * 0.052,
+			cav.size.x - w * 0.024, h * 0.044)
+	_rrect(water, WATER, int(h * 0.018))
+
+	_draw_deposits(cav)
+
+	# The goal: a full bowl is 100%. Marked in gold on the cavity's top edge, the
+	# same language the old tube used.
+	var glow := GOAL
+	glow.a = 0.20
+	_rrect(Rect2(cav.position.x - w * 0.012, cav.position.y - h * 0.008,
+			cav.size.x + w * 0.024, h * 0.014), glow, 6)
+	_rrect(Rect2(cav.position.x - w * 0.006, cav.position.y - h * 0.004,
+			cav.size.x + w * 0.012, h * 0.006), GOAL, 3)
+
+
+## One lump per recorded deposit, stacked from the bottom of the cavity up.
+##
+## Every value here is a pure function of (index, match_seed) or of the width
+## sampled when the layer was laid down — NOTHING calls randf(). Two reasons:
+## _draw() re-runs every frame, so live randomness would make the pile crawl and
+## shimmer instead of sitting there; and a seeded replay or a ghost has to draw
+## the identical pile, which live randomness would break.
+func _draw_deposits(cav: Rect2) -> void:
+	if _deposits.is_empty():
+		return
+	var layer := cav.size.y / float(DEPOSITS)
+	var flash := _milestone_flash > 0.0
+	for i in _deposits.size():
+		var force: float = _deposits[i]
+		var lumpy := _lump(i, 11)
+		var drift := _lump(i, 29)
+		# Width is the needle at that instant, roughened per layer so no two runs
+		# and no two layers look alike.
+		var lw: float = cav.size.x * (0.26 + 0.50 * force) * (0.84 + 0.32 * lumpy)
+		lw = minf(lw, cav.size.x * 0.94)
+		var lx: float = cav.position.x + cav.size.x * 0.5 + (drift - 0.5) * cav.size.x * 0.14
+		var ly: float = cav.end.y - float(i + 1) * layer
+		var body := Rect2(lx - lw * 0.5, ly, lw, layer * 2.3)
+		var r := int(maxf(3.0, layer))
+		var top := MATTER
+		if flash:
+			top = MATTER.lerp(NEEDLE, 0.35 * (_milestone_flash / 0.5))
+		# Shadow tone offset down, flat fill over it — two tones, no gradient.
+		_rrect(Rect2(body.position.x, body.position.y + layer * 0.55, body.size.x, body.size.y),
+				MATTER_DARK, r)
+		_rrect(body, top, r)
+
+
+## Deterministic 0..1 noise from a layer index and a salt, mixed with the match
+## seed so a different seed grows a different pile — but the SAME seed always
+## grows the same one.
+func _lump(i: int, salt: int) -> float:
+	var x: int = i * 73856093 ^ match_seed * 19349663 ^ salt * 83492791
+	x = (x ^ (x >> 13)) * 1274126177
+	return float(absi(x) % 100003) / 100003.0
 
 
 ## Stink lines. §5 names the squiggle as the sanctioned comedic flourish, so the
@@ -536,16 +674,18 @@ func _draw_stink(w: float, h: float) -> void:
 		return
 	var arrived := slot.phase == HazardSlot.Phase.ACTIVE
 
-	var bx := w * 0.557
-	var base := h * 0.47                    # just clear of his crown
-	var tip := h * 0.25
+	var bx := _scene_cx(w)
+	var base := h * 0.50                    # the bowl rim, where it's coming from
+	var tip := h * 0.28
 	var speed := 5.2 if arrived else 2.4
 	var peak := 0.85 if arrived else 0.38
 	var col := Color(0.55, 0.66, 0.24)      # the smell cloud's own green
 	var steps := 16
 
-	for i in 3:
-		var ox := (float(i) - 1.0) * w * 0.045
+	# Two either side of him rather than three in a line: he's centred now, so a
+	# centre squiggle would just run up his chest.
+	for i in 4:
+		var ox: float = [-0.235, -0.155, 0.155, 0.235][i] * w
 		var pts := PackedVector2Array()
 		var cols := PackedColorArray()
 		for k in steps + 1:
@@ -697,9 +837,12 @@ func _draw_quiet_status(font: Font, w: float, h: float) -> void:
 	_text(font, label, 0, int(by + bh * 0.70), w, int(h * 0.020), Color(0.08, 0.07, 0.05))
 
 
+## THE PUSH now hugs the left edge: the bowl and the man own the rest of the
+## screen, and the gauge only ever needs to be read for the needle's HEIGHT, so
+## it loses width cheaply.
 func _draw_gauge(font: Font, w: float, h: float) -> void:
-	var gx := w * 0.20
-	var gw := w * 0.26
+	var gx := w * 0.05
+	var gw := w * 0.16
 	var gy := h * 0.22
 	var gh := h * 0.46
 	var gbot := gy + gh
@@ -776,43 +919,23 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 	if Hazards.relief_stalled(_state):
 		zname = "RELEASE"
 		zlabel_col = Color(0.72, 0.88, 1.0)
-	_text(font, zname, gx - 8, int(gbot + h * 0.04), gw + 16, int(h * 0.024), zlabel_col)
+	# The zone name gets a WIDER region than the gauge itself. At this column
+	# width "DEAD ZONE" clips to "DEAD Z"; the strip to the gauge's right is empty
+	# down here, so the label can centre on the gauge and overhang it.
+	_text(font, zname, 0, int(gbot + h * 0.04), w * 0.26, int(h * 0.024), zlabel_col)
 
 
-func _draw_relief(font: Font, w: float, h: float) -> void:
-	var gy := h * 0.22
-	var gh := h * 0.46
-	var gbot := gy + gh
-	var rx := w * 0.64
-	var rw := w * 0.16
-
-	# The tube reads as glass: a dark recess, then the column of relief inside it.
-	_rrect(Rect2(rx, gy, rw, gh), PANEL.darkened(0.35), 16, Palette.BORDER, 2)
-
-	var fh := gh * (_state.relief / 100.0)
-	var rcol := FLOW
-	if _milestone_flash > 0.0:
-		rcol = NEEDLE.lerp(FLOW, 1.0 - _milestone_flash / 0.5)
-	var pad := 5.0
-	var top_y := maxf(gy + pad, gbot - pad - fh)
-	if gbot - pad - top_y > 1.0:
-		var fill := Rect2(rx + pad, top_y, rw - pad * 2.0, gbot - pad - top_y)
-		_rrect(fill, rcol.darkened(0.22), 12)
-		# Gradient inset clear of the rounded corners (see _vgrad), then a gloss
-		# band across the surface of the column.
-		var lit := fill.grow_individual(-6.0, -5.0, -6.0, -5.0)
-		_vgrad(lit, rcol.lightened(0.30), rcol.darkened(0.24))
-		_rrect(Rect2(fill.position.x + 5.0, fill.position.y + 4.0,
-				maxf(0.0, fill.size.x - 10.0), minf(8.0, fill.size.y * 0.10)),
-				Color(1.0, 1.0, 1.0, 0.28), 4)
-
-	# Goal marker — a gold capsule straddling the tube, with a faint halo.
-	var goal_glow := GOAL
-	goal_glow.a = 0.22
-	_rrect(Rect2(rx - 12, gy - 6, rw + 24, 13), goal_glow, 6)
-	_rrect(Rect2(rx - 8, gy - 2.5, rw + 16, 5), GOAL, 3)
-	_text(font, "RELIEF", rx, int(gy - h * 0.018), rw, int(h * 0.016), TEXT_DIM)
-	_text(font, "%d%%" % int(_state.relief), rx, int(gbot + h * 0.04), rw, int(h * 0.024), TEXT)
+## Relief lost its abstract green tube — the bowl IS the meter now, so all that's
+## left is the precise readout. A pile is a great feel and a poor number, and the
+## win condition is an exact 100%, so the digits stay.
+func _draw_relief_readout(font: Font, w: float, h: float) -> void:
+	# Once the run is over the results screen owns every number, and this one sits
+	# exactly where the win screen puts "tap · press R to retry".
+	if _state.phase != SimState.Phase.PLAYING:
+		return
+	var cav := _bowl_cavity(w, h)
+	_text(font, "RELIEF  %d%%" % int(_state.relief),
+			cav.position.x, int(h * 0.727), cav.size.x, int(h * 0.024), TEXT)
 
 
 func _draw_prompt(font: Font, w: float, h: float) -> void:
@@ -874,7 +997,9 @@ func _draw_buzz(w: float, h: float) -> void:
 	var jiggle := sin(_t * 42.0) * (3.0 if ringing else 1.2)
 	var pw := w * 0.055
 	var ph := h * 0.048
-	var px := w * 0.075 + jiggle
+	# In the channel between the gauge (now hard left) and the bowl, so it sits on
+	# neither.
+	var px := w * 0.245 + jiggle
 	var py := h * 0.30
 	draw_rect(Rect2(px, py, pw, ph), ORANGE if ringing else AMBER)
 	draw_rect(Rect2(px + pw * 0.14, py + ph * 0.10, pw * 0.72, ph * 0.64), Color(0.12, 0.12, 0.14))
@@ -973,6 +1098,28 @@ func _rrect(rect: Rect2, col: Color, radius: int,
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = col
 	sb.set_corner_radius_all(radius)
+	if border_w > 0:
+		sb.border_color = border_col
+		sb.set_border_width_all(border_w)
+	draw_style_box(sb, rect)
+
+
+## Like _rrect, but with per-corner radii. The bowl needs a tight top and a deep
+## round bottom to read as a basin instead of a bucket, and a single radius can't
+## say that.
+## (Spelled out rather than tl/tr/br/bl — "tr" shadows Object.tr().)
+func _rrect_c(rect: Rect2, col: Color, top_l: int, top_r: int, bot_r: int, bot_l: int,
+		border_col: Color = Color(0, 0, 0, 0), border_w: int = 0) -> void:
+	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+		return
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = col
+	# Set per corner: StyleBoxFlat has set_corner_radius_all() but no
+	# set_corner_radius_individual() — the individual radii are plain properties.
+	sb.corner_radius_top_left = top_l
+	sb.corner_radius_top_right = top_r
+	sb.corner_radius_bottom_right = bot_r
+	sb.corner_radius_bottom_left = bot_l
 	if border_w > 0:
 		sb.border_color = border_col
 		sb.set_border_width_all(border_w)

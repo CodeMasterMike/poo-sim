@@ -26,3 +26,14 @@ const TEXT_DIM  := Color("94A1B5")  ## secondary text, labels, hints
 ## The modal scrim behind overlays (manual, picker). Translucent, so it's its own
 ## token rather than a surface tone.
 const SCRIM     := Color("12141A", 0.92)
+
+# --- Representational colour ---------------------------------------------
+# The only hues here that depict a THING rather than carry a meaning. They live
+# in the palette anyway so they can't drift, but they are explicitly NOT
+# semantic: unlike FLOW/RED/AMBER they never signal state, and nothing should
+# ever read a rule from them. Two matter tones exactly, because the style guide
+# (§5) allows a flat fill plus one shadow tone and no more.
+
+const MATTER      := Color("6B4A2B")  ## the product — flat fill
+const MATTER_DARK := Color("422C17")  ## the product — its single shadow tone
+const WATER       := Color("2B4B58")  ## bowl water, before anything lands in it
