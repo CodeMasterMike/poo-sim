@@ -34,6 +34,12 @@ const SCRIM     := Color("12141A", 0.92)
 # ever read a rule from them. Two matter tones exactly, because the style guide
 # (§5) allows a flat fill plus one shadow tone and no more.
 
+## The product gets THREE tones, not the two §5 allows. That is a deliberate,
+## recorded exception (see the style guide): the wet highlight is the whole
+## difference between "a brown shape" and something that reads as fresh, and
+## this one object is meant to be genuinely unpleasant rather than gross by
+## implication. Nothing else in the game may take the same liberty.
 const MATTER      := Color("6B4A2B")  ## the product — flat fill
-const MATTER_DARK := Color("422C17")  ## the product — its single shadow tone
+const MATTER_DARK := Color("422C17")  ## the product — shadow tone
+const MATTER_LIT  := Color("A8814B")  ## the product — wet sheen
 const WATER       := Color("2B4B58")  ## bowl water, before anything lands in it

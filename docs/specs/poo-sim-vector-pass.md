@@ -81,7 +81,30 @@ The sampling happens in `_process()`, not `_draw()`, because the needle has to b
 
 `DEPOSITS` is deliberately low (30). Finer layers are a truer record but render as thin stacked planks; the chunkier the layer, the more it reads as a lump.
 
-Three colours were added to `Palette` — `MATTER`, `MATTER_DARK`, `WATER` — rather than inlined as `Color()` literals, per the palette's own no-drift rule. They're documented in the style guide under a new *Representational* heading: they depict a thing rather than signal a state, and sit outside the §3 colour grammar entirely.
+Four colours were added to `Palette` — `MATTER`, `MATTER_DARK`, `MATTER_LIT`, `WATER` — rather than inlined as `Color()` literals, per the palette's own no-drift rule. They're documented in the style guide under a new *Representational* heading: they depict a thing rather than signal a state, and sit outside the §3 colour grammar entirely.
+
+### How gross, exactly
+
+The product is the **one sanctioned carve-out** from §6's "sell the gross-out with comedy & audio, not the visuals" and from the two-tone rule, recorded as such in the style guide. It earns a third tone because the wet sheen is the whole difference between something that reads as fresh and a brown shape.
+
+What makes it read as matter rather than as a stack of planks:
+
+- **Two or three overlapping lobes per layer**, not one capsule. The irregular silhouette does most of the work.
+- **Sheen on roughly half the lobes only, and small.** A highlight on every lobe at a consistent size stripes the pile and it starts to read as flaky pastry — that was the first attempt.
+- **Tone varies per lobe** between `MATTER` and `MATTER_DARK`.
+- **The water goes off as the bowl fills**, lerping toward `MATTER_DARK` with Relief.
+- **Skid marks down the porcelain, driven by Cleanliness.** No new state: Cleanliness already tracks how much you splashed, so the bowl simply wears it. The mess *is* the score, drawn.
+- **Splatter on the rim during a splash**, the transient moment whose permanent record is those streaks.
+
+Lobes are drawn with `_limb()`, not `_rrect()` — it round-caps a bar in three primitive draws with no `StyleBoxFlat` allocation, which matters at ~90 lobes a frame. Measured at 59 FPS / 763 draw calls with a full bowl.
+
+The carve-out buys no licence toward photorealism: the shapes stay flat-filled, thickly outlined cartoon lobes. Everything around them stays in register — a flat, earnest instrument panel reporting on something horrible is the §1 joke, and it only works if the panel keeps a straight face.
+
+### The HUD went back to flat
+
+The meters, gauge bands, needle highlight and prompt band briefly carried gradient fills and gloss slivers. That was a deviation from §5 — which is explicit that gradients are juice only and never structural — and it has been reverted.
+
+Rounded corners stay; §5 sets a radius scale and puts meters at `height/2`. What went is the emboss: an embossed bar reads as a glossy app widget, which is register A's job to be fun and register B's job to refuse. Glow survives only where §5 permits it as juice — the flow-zone pulse, the milestone flash, the needle's halo. `_lit_band()` was deleted outright; it existed only to add the gradient and gloss.
 
 ### What the man's pose had to give up
 

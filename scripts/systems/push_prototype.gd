@@ -599,12 +599,26 @@ func _draw_bowl(w: float, h: float) -> void:
 	_rrect_c(cav, PANEL.darkened(0.52), int(w * 0.030), int(w * 0.030),
 			int(w * 0.17), int(w * 0.17))
 
-	# Water first, so anything that lands displaces it visually.
+	# Water first, so anything that lands displaces it visually. It goes off as
+	# the bowl fills — clean at the start, and by the end you would not put your
+	# hand in it.
+	var foul := clampf(_state.relief / 100.0, 0.0, 1.0)
 	var water := Rect2(cav.position.x + w * 0.012, cav.end.y - h * 0.052,
 			cav.size.x - w * 0.024, h * 0.044)
-	_rrect(water, WATER, int(h * 0.018))
+	_rrect(water, WATER.lerp(MATTER_DARK, 0.75 * foul), int(h * 0.018))
 
+	_draw_streaks(cav)
 	_draw_deposits(cav)
+
+	# Splatter. The red zone costs Cleanliness, which the streaks above record
+	# permanently; this is the moment it happens, thrown up onto the rim.
+	if _splash_flash > 0.0:
+		var spread := _splash_flash / 0.4
+		for i in 9:
+			var fx: float = outer.position.x + outer.size.x * (0.10 + 0.80 * _lump(i, 211))
+			var fy: float = cav.position.y - h * 0.004 * _lump(i, 213) \
+					- h * 0.030 * spread * _lump(i, 217)
+			draw_circle(Vector2(fx, fy), maxf(1.5, w * 0.008 * _lump(i, 219)), MATTER)
 
 	# The goal: a full bowl is 100%. Marked in gold on the cavity's top edge, the
 	# same language the old tube used.
@@ -614,6 +628,22 @@ func _draw_bowl(w: float, h: float) -> void:
 			cav.size.x + w * 0.024, h * 0.014), glow, 6)
 	_rrect(Rect2(cav.position.x - w * 0.006, cav.position.y - h * 0.004,
 			cav.size.x + w * 0.012, h * 0.006), GOAL, 3)
+
+
+## Skid marks down the porcelain. Cleanliness is the meter that already tracks
+## how much you splashed, so the bowl simply wears it: the lower it drops, the
+## more the walls show for it. No new state — the mess IS the score, drawn.
+func _draw_streaks(cav: Rect2) -> void:
+	var filth := clampf(1.0 - _state.cleanliness / 100.0, 0.0, 1.0)
+	var count := int(filth * 9.0)
+	for i in count:
+		var sx: float = cav.position.x + cav.size.x * (0.07 + 0.86 * _lump(i, 101))
+		var sy: float = cav.position.y + cav.size.y * (0.04 + 0.30 * _lump(i, 103))
+		var run: float = cav.size.y * (0.10 + 0.30 * _lump(i, 107))
+		var rad: float = cav.size.x * (0.010 + 0.016 * _lump(i, 109))
+		_limb(Vector2(sx, sy), Vector2(sx, sy + run), rad, MATTER_DARK)
+		_limb(Vector2(sx, sy), Vector2(sx, sy + run * 0.55), rad * 0.45,
+				MATTER_DARK.lerp(MATTER, 0.45))
 
 
 ## One lump per recorded deposit, stacked from the bottom of the cavity up.
@@ -630,23 +660,43 @@ func _draw_deposits(cav: Rect2) -> void:
 	var flash := _milestone_flash > 0.0
 	for i in _deposits.size():
 		var force: float = _deposits[i]
-		var lumpy := _lump(i, 11)
-		var drift := _lump(i, 29)
-		# Width is the needle at that instant, roughened per layer so no two runs
-		# and no two layers look alike.
-		var lw: float = cav.size.x * (0.26 + 0.50 * force) * (0.84 + 0.32 * lumpy)
-		lw = minf(lw, cav.size.x * 0.94)
-		var lx: float = cav.position.x + cav.size.x * 0.5 + (drift - 0.5) * cav.size.x * 0.14
 		var ly: float = cav.end.y - float(i + 1) * layer
-		var body := Rect2(lx - lw * 0.5, ly, lw, layer * 2.3)
-		var r := int(maxf(3.0, layer))
-		var top := MATTER
-		if flash:
-			top = MATTER.lerp(NEEDLE, 0.35 * (_milestone_flash / 0.5))
-		# Shadow tone offset down, flat fill over it — two tones, no gradient.
-		_rrect(Rect2(body.position.x, body.position.y + layer * 0.55, body.size.x, body.size.y),
-				MATTER_DARK, r)
-		_rrect(body, top, r)
+		# Two or three overlapping lobes per layer, not one capsule. A single
+		# rounded rect per layer stacks into something that reads as planks; the
+		# irregular silhouette is what makes it read as matter.
+		var lobes := 2 + int(_lump(i, 3) * 1.99)
+		for k in lobes:
+			var n1 := _lump(i, 11 + k * 7)
+			var n2 := _lump(i, 29 + k * 13)
+			var n3 := _lump(i, 47 + k * 5)
+			# Width is the needle at that instant, roughened per lobe so no two
+			# runs and no two layers look alike.
+			var half: float = cav.size.x * (0.10 + 0.21 * force) * (0.60 + 0.55 * n1)
+			half = minf(half, cav.size.x * 0.45)
+			var rad: float = layer * (0.85 + 0.75 * n3)
+			var lx: float = cav.position.x + cav.size.x * 0.5 \
+					+ (n2 - 0.5) * cav.size.x * (0.10 + 0.24 * force)
+			var tone := MATTER.lerp(MATTER_DARK, n1 * 0.42)
+			if flash:
+				tone = tone.lerp(NEEDLE, 0.30 * (_milestone_flash / 0.5))
+			var a := Vector2(lx - half, ly)
+			var b := Vector2(lx + half, ly)
+			# _limb, not _rrect: it round-caps a bar with three primitive draws
+			# and no StyleBoxFlat, which matters at ~90 lobes a frame.
+			_limb(a + Vector2(0.0, rad * 0.55), b + Vector2(0.0, rad * 0.55), rad, MATTER_DARK)
+			_limb(a, b, rad, tone)
+			# Wet sheen. The single thing that separates "fresh" from "a brown
+			# shape", and the reason the product gets a third tone — a recorded
+			# exception to §5, see the style guide.
+			#
+			# On roughly half the lobes only, and small. A highlight on every
+			# lobe at a consistent size stripes the whole pile and it starts to
+			# read as flaky pastry rather than something wet.
+			if n2 > 0.46:
+				var sheen_x := lx - half * (0.34 - 0.42 * n1)
+				_limb(Vector2(sheen_x - half * 0.20, ly - rad * 0.46),
+						Vector2(sheen_x + half * 0.16, ly - rad * 0.46),
+						maxf(1.0, rad * 0.13), Palette.MATTER_LIT)
 
 
 ## Deterministic 0..1 noise from a layer index and a salt, mixed with the match
@@ -733,9 +783,14 @@ func _pill(font: Font, label: String, value: float, x: float, y: float, pw: floa
 	_track(Rect2(x, y, pw, ph), value / 100.0, _meter_color(value))
 
 
-## An inset, rounded meter track with a lit fill and a gloss sliver — the shared
-## look for Composure and the two pills. `col` still comes from _meter_color(),
-## so the red→amber→green state language is untouched.
+## A rounded meter track with a FLAT fill — the shared look for Composure and the
+## two pills. `col` comes from _meter_color(), so the red→amber→green state
+## language is untouched.
+##
+## No gradient, no gloss. §5 is explicit that gradients are juice only and never
+## structural, and the earlier embossed treatment broke that: it read as a glossy
+## app widget rather than the earnest instrument register B is meant to be.
+## Rounding stays — §5 sets a corner scale and puts meters at height/2.
 func _track(rect: Rect2, frac: float, col: Color) -> void:
 	_rrect(rect, PANEL.darkened(0.22), int(rect.size.y * 0.5), Palette.BORDER, 2)
 	var pad := 2.5
@@ -743,14 +798,7 @@ func _track(rect: Rect2, frac: float, col: Color) -> void:
 	if fw <= 1.0:
 		return
 	var fill := Rect2(rect.position.x + pad, rect.position.y + pad, fw, rect.size.y - pad * 2.0)
-	var r := int(fill.size.y * 0.5)
-	_rrect(fill, col.darkened(0.18), r)
-	# Inset the gradient: _vgrad has sharp corners, so it has to stay clear of
-	# the rounded fill's edges.
-	var lit := fill.grow_individual(-r * 0.5, -1.5, -r * 0.5, -1.5)
-	_vgrad(lit, col.lightened(0.18), col.darkened(0.10))
-	_rrect(Rect2(fill.position.x + r * 0.5, fill.position.y + 1.5,
-			maxf(0.0, fill.size.x - r), fill.size.y * 0.30), Color(1.0, 1.0, 1.0, 0.20), 3)
+	_rrect(fill, col, int(fill.size.y * 0.5))
 
 
 func h_gap() -> float:
@@ -833,7 +881,6 @@ func _draw_quiet_status(font: Font, w: float, h: float) -> void:
 	var bar := col
 	bar.a = 0.92
 	_rrect(Rect2(w * 0.06, by, w * 0.88, bh), bar, int(bh * 0.34))
-	_rrect(Rect2(w * 0.07, by + bh * 0.14, w * 0.86, bh * 0.22), Color(1.0, 1.0, 1.0, 0.16), 3)
 	_text(font, label, 0, int(by + bh * 0.70), w, int(h * 0.020), Color(0.08, 0.07, 0.05))
 
 
@@ -853,13 +900,15 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 	_rrect(Rect2(gx - 8, gy - 8, gw + 16, gh + 16), PANEL, 16, Palette.BORDER, 2)
 	_rrect(Rect2(gx, gy, gw, gh), DEAD, 10)
 
+	# Flat bands. They were gradient-and-gloss "raised surfaces"; §5 says that
+	# treatment is juice, not structure, and the zones are pure structure.
 	var highest := 0.0
 	for band in _state.flow_bands:
 		highest = maxf(highest, band.y)
 		var inside: bool = _state.needle >= band.x and _state.needle <= band.y
-		_lit_band(gx, gw, gbot, gh, band.x, band.y,
+		_band(gx, gw, gbot, gh, band.x, band.y,
 				FLOW if (zone == PushSim.ZONE_FLOW and inside) else FLOW_DIM)
-	_lit_band(gx, gw, gbot, gh, highest, 1.0, RED if zone == PushSim.ZONE_RED else RED_DIM)
+	_band(gx, gw, gbot, gh, highest, 1.0, RED if zone == PushSim.ZONE_RED else RED_DIM)
 
 	# In-flow glow — a soft reward for good placement.
 	if zone == PushSim.ZONE_FLOW:
@@ -891,11 +940,11 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 		var spread := 12.0 - f * 9.0
 		_rrect(Rect2(gx - spread, ny - hh * 0.5, gw + spread * 2.0, hh), halo, int(hh * 0.5))
 
+	# Flat white bar and a capped tip. The halo above stays — a glow around the
+	# needle is exactly the "juice" §5 permits; the highlight line that used to
+	# run along the bar was emboss, and went.
 	var body := Rect2(gx - 4.0, ny - 8.0, gw + 8.0, 16.0)
 	_rrect(body, NEEDLE, 8)
-	# Highlight line along the top of the body, and a capped tip.
-	_rrect(Rect2(body.position.x + 6.0, body.position.y + 2.5, body.size.x - 12.0, 4.0),
-			Color(1.0, 1.0, 1.0, 0.9), 2)
 	var tip := Vector2(gx + gw - 8.0, ny)
 	draw_circle(tip, 11.0, NEEDLE)
 	draw_arc(tip, 11.0, 0.0, TAU, 28, zcol, 2.5, true)
@@ -961,7 +1010,6 @@ func _draw_prompt(font: Font, w: float, h: float) -> void:
 	var by := h * 0.74
 	var bh := h * 0.05
 	_rrect(Rect2(w * 0.10, by, w * 0.80, bh), col, int(bh * 0.30))
-	_rrect(Rect2(w * 0.11, by + bh * 0.12, w * 0.78, bh * 0.20), Color(1.0, 1.0, 1.0, 0.18), 4)
 	_text(font, text, 0, int(by + bh * 0.66), w, int(h * 0.026), Color(0.1, 0.08, 0.05))
 
 
@@ -1147,23 +1195,6 @@ func _band(x: float, bw: float, bottom: float, gh: float, n_lo: float, n_hi: flo
 	var y_hi := bottom - n_hi * gh
 	var y_lo := bottom - n_lo * gh
 	_rrect(Rect2(x, y_hi, bw, y_lo - y_hi), col, radius)
-
-
-## A gauge band with a top-lit gradient and a gloss sliver — the flow and red
-## zones, which need to read as raised surfaces against the recessed track.
-func _lit_band(x: float, bw: float, bottom: float, gh: float, n_lo: float, n_hi: float,
-		col: Color) -> void:
-	var y_hi := bottom - n_hi * gh
-	var rect := Rect2(x, y_hi, bw, (bottom - n_lo * gh) - y_hi)
-	if rect.size.y <= 0.0:
-		return
-	_rrect(rect, col, 8)
-	var lit := rect.grow_individual(-5.0, -4.0, -5.0, -4.0)
-	if lit.size.x <= 0.0 or lit.size.y <= 0.0:
-		return
-	_vgrad(lit, col.lightened(0.16), col.darkened(0.22))
-	_rrect(Rect2(lit.position.x, lit.position.y, lit.size.x, minf(6.0, lit.size.y * 0.25)),
-			Color(1.0, 1.0, 1.0, 0.16), 3)
 
 
 func _draw_star(center: Vector2, radius: float, col: Color, filled: bool) -> void:
