@@ -270,6 +270,15 @@ func _deposit(state: SimState, level: LevelDef, gained: float) -> void:
 		return
 	# 100% Relief fills the bowl to the rim, so one column-height is 100/cols percent.
 	var units := gained * float(cols) / 100.0
+
+	# The bowl takes on the consistency of what lands in it, weighted by mass. A
+	# late dribble of runny can't re-grade a firm mound, and — the reason this is
+	# tracked separately from `thickness` at all — the pile doesn't liquefy the
+	# moment you let go and the exit goes runny.
+	var held := state.bowl_mass()
+	state.bowl_thickness = (state.bowl_thickness * held + state.thickness * units) \
+			/ maxf(0.000001, held + units)
+
 	var drop := drop_u(state, level) * float(cols - 1)
 	var i := clampi(int(floor(drop)), 0, cols - 1)
 	var f := drop - float(i)
@@ -297,8 +306,10 @@ func _slump(state: SimState, level: LevelDef) -> void:
 	var cols := state.bowl.size()
 	if cols < 2:
 		return
-	var repose := lerpf(level.repose_runny, level.repose_solid, state.thickness)
-	var relax := lerpf(level.slump_relax_runny, level.slump_relax_solid, state.thickness)
+	# Graded by what's IN the bowl, never by what's at the exit — see
+	# SimState.bowl_thickness.
+	var repose := lerpf(level.repose_runny, level.repose_solid, state.bowl_thickness)
+	var relax := lerpf(level.slump_relax_runny, level.slump_relax_solid, state.bowl_thickness)
 	var flux := PackedFloat32Array()
 	flux.resize(cols)
 	for i in cols - 1:

@@ -40,6 +40,18 @@ var thickness: float = 0.5
 ## same way every other field here does.
 var bowl: PackedFloat32Array = PackedFloat32Array()
 
+## The consistency of what's ALREADY IN the bowl — a mass-weighted mean of every
+## deposit — as opposed to `thickness`, which is what's at the exit right now.
+##
+## They have to be separate. The settle reads this one, and it used to read
+## `thickness`: since letting go drives `thickness` to runny, a firm mound you had
+## built would liquefy and slump flat the moment you stopped pushing. Matter in the
+## bowl does not re-grade itself because you paused.
+##
+## Meaningless until the first deposit, which sets it outright (there is no mass to
+## weight against).
+var bowl_thickness: float = 0.5
+
 ## Where the stream is landing, as an offset either side of the bowl's centre.
 ## It is never a function of how HIGH the needle is — pushing harder doesn't aim
 ## you sideways, it just makes you a worse nozzle — so this wanders around the

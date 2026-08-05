@@ -689,7 +689,10 @@ func _draw_pile(cav: Rect2) -> void:
 	for s in samples + 1:
 		var u := float(s) / float(samples)
 		var hgt := _sample_bowl(u)
-		var rough := (_lump(s, 401) - 0.5) * 0.10 * _state.thickness * minf(1.0, hgt * 5.0)
+		# Roughness grades off what's IN the bowl, not what's at the exit — the pile
+		# shouldn't visibly smooth out just because you stopped pushing.
+		var rough := (_lump(s, 401) - 0.5) * 0.10 * _state.bowl_thickness \
+				* minf(1.0, hgt * 5.0)
 		xs.append(cav.position.x + cav.size.x * u)
 		ys.append(minf(cav.end.y - cav.size.y * clampf(hgt + rough, 0.0, 1.10), cav.end.y))
 

@@ -218,6 +218,91 @@ func test_runny_levels_flat_and_solid_stacks() -> void:
 	assert_gt(b_ratio, a_ratio * 1.5, "runny and solid should settle visibly differently")
 
 
+# --------------------------------------------------- the bowl's own consistency
+
+## THE regression this exists for. Build a firm mound, then let go — and because
+## letting go drives the EXIT to runny, the settle used to re-grade the whole pile
+## and melt it flat. Matter already in the bowl does not change consistency because
+## you stopped pushing.
+## Note what is NOT asserted: that the peak is unchanged. A mound built by
+## deposition is steeper than its own angle of repose — matter lands faster than
+## the settle relaxes it — so when you stop, it finishes settling. That is the
+## sandpile working. The bug was that it kept going all the way to FLAT, because a
+## runny exit re-graded the whole bowl.
+func test_a_mound_survives_letting_go() -> void:
+	var solid := _level(1.0)
+	solid.thickness_push_gain = 0.0
+	var kept := _run_pinned(solid, _band_mid(solid), 10.0)
+	assert_gt(kept.bowl_peak(), 0.0, "nothing was built to test with")
+
+	# The identical pile, but with the bowl mis-graded runny — precisely what the
+	# old code did the moment the exit went runny.
+	var melted := _run_pinned(solid, _band_mid(solid), 10.0)
+	melted.bowl_thickness = 0.0
+
+	var level := _level()
+	_idle(kept, level, 10.0)
+	_idle(melted, level, 10.0)
+
+	assert_true(kept.thickness < 0.15, "the exit should have gone runny (it did not)")
+	assert_true(kept.bowl_thickness > 0.85, "the BOWL should still be firm")
+	assert_gt(kept.bowl_peak(), melted.bowl_peak() * 1.5,
+			"a firm bowl should hold its mound where a mis-graded one slumps flat")
+
+	# And it settles to its repose angle and STOPS, rather than creeping flat.
+	var settled := kept.bowl_peak()
+	_idle(kept, level, 20.0)
+	assert_true(kept.bowl_peak() > settled * 0.97,
+			"the firm pile should have converged, went %f -> %f" % [settled, kept.bowl_peak()])
+
+
+## Tick a state forward with the needle held on the floor.
+func _idle(state: SimState, level: LevelDef, seconds: float) -> void:
+	var clock := SimClock.new(1337)
+	var sim := PushSim.new()
+	var intent := PlayerIntent.new()
+	for _i in int(seconds / SimClock.FIXED_DT):
+		state.needle = 0.0
+		state.needle_vel = 0.0
+		sim.tick(state, intent, clock, level, SimClock.FIXED_DT)
+		clock.advance()
+
+
+## The mean is mass-weighted, so a brief dribble can't re-grade a big firm pile.
+func test_the_bowl_consistency_is_mass_weighted() -> void:
+	var solid := _level(1.0)
+	solid.thickness_push_gain = 0.0
+	var state := _run_pinned(solid, _band_mid(solid), 12.0)
+	var firm := state.bowl_thickness
+
+	var runny := _level(0.0)
+	runny.thickness_push_gain = 0.0
+	state.thickness = 0.0
+	var clock := SimClock.new(1337)
+	var sim := PushSim.new()
+	var intent := PlayerIntent.new()
+	for _i in int(1.0 / SimClock.FIXED_DT):
+		state.needle = _band_mid(runny)
+		state.needle_vel = 0.0
+		sim.tick(state, intent, clock, runny, SimClock.FIXED_DT)
+		clock.advance()
+
+	assert_true(state.bowl_thickness < firm, "the dribble should have counted for something")
+	assert_true(state.bowl_thickness > firm * 0.7,
+			"a short dribble should not re-grade the whole pile (%f -> %f)"
+					% [firm, state.bowl_thickness])
+
+
+## A uniform run leaves the bowl at exactly the consistency it was fed.
+func test_a_uniform_run_matches_what_was_deposited() -> void:
+	var level := _level(0.8)
+	level.thickness_push_gain = 0.0
+	var state := _run_pinned(level, _band_mid(level), 8.0)
+
+	assert_true(absf(state.bowl_thickness - 0.8) < 0.01,
+			"fed 0.8 throughout, the bowl reads %f" % state.bowl_thickness)
+
+
 # ------------------------------------------------------------------------ aim
 
 ## The landing point must stay CENTRED however hard you push. An earlier version

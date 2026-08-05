@@ -70,6 +70,7 @@ func test_same_seed_same_intents_reproduce_exactly() -> void:
 	# The bowl's settled heightfield is sim state now, so it has to replay too —
 	# this is the assertion that would catch anyone reaching for engine physics.
 	assert_eq(a.thickness, b.thickness, "thickness diverged")
+	assert_eq(a.bowl_thickness, b.bowl_thickness, "the bowl's consistency diverged")
 	assert_eq(a.bowl, b.bowl, "the settled pile diverged")
 	# The pattern must actually exercise the systems, or "identical" is hollow.
 	assert_gt(a.total_fill, 0.0, "run produced no Relief — pattern didn't exercise the sim")
