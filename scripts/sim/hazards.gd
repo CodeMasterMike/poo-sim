@@ -108,12 +108,18 @@ static func room_exposed(state: SimState, level: LevelDef) -> bool:
 ## by adding an arm here — PushSim and SimState don't change.
 ##
 ## The Jolt already carries its impulse magnitude in `slot.cost`, so that doubles
-## as the shake strength; it's normalised against a nominal 1.2 impulse.
+## as the shake strength, normalised against the operator's own full-shake scale.
+## Ask the operator for that scale rather than keeping a number here: a second
+## shaking hazard brings its own, and this table shouldn't accumulate them.
+##
+## Concurrent shakes take the WORST, they don't add — two hazards agreeing you're
+## unsteady is still one unsteady sitter, and summing would let a stacked pair
+## throw the stream clean out of the bowl.
 static func turbulence(state: SimState) -> float:
 	var worst := 0.0
 	for slot in state.hazards:
 		if slot.kind == SimEvent.Kind.JOLT and slot.phase == HazardSlot.Phase.ACTIVE:
-			worst = maxf(worst, clampf(slot.cost / 1.2, 0.0, 1.0))
+			worst = maxf(worst, clampf(slot.cost / JoltHazard.FULL_SHAKE_IMPULSE, 0.0, 1.0))
 	return worst
 
 

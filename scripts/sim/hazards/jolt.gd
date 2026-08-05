@@ -15,6 +15,20 @@ extends RefCounted
 ## Direction is rolled from the match-seeded RNG when the jolt lands, so it can
 ## shove you either way while still replaying identically for a given seed.
 
+## The displacement that counts as being shaken as hard as the model goes.
+##
+## `slot.cost` carries this jolt's own displacement, so it doubles as a shake
+## strength; `Hazards.turbulence()` normalises against this to report 0..1, and a
+## gentler jolt therefore throws the stream around less than a violent one. It
+## lives HERE rather than in the dispatch layer because it's a fact about the
+## Jolt: the next hazard that shakes you brings its own scale, and Hazards should
+## be asking each operator, not carrying a number for one of them.
+##
+## Matches the displacement the authored jolts use (see LevelGreybox), so a stock
+## jolt reads as a full shake.
+const FULL_SHAKE_IMPULSE: float = 1.2
+
+
 static func start(state: SimState, payload: SimEvent.JoltPayload, _clock: SimClock) -> void:
 	var slot := HazardSlot.new()
 	slot.kind = SimEvent.Kind.JOLT

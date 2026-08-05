@@ -132,6 +132,29 @@ A new system: an external noise source that periodically makes loud play safe (o
 - **Hazards:** a delayed **Smell Cloud** variant; optional double **Neighbor**. A castle-under-siege reskin makes the arrow-storm a **Jolt**.
 - **Build cost:** 🟡. (More flavor-forward than the others — validate the rule holds up.)
 
+### G. Publish the schedule
+
+#### 🏫 High School Bathroom — *"you can see it coming"* · New
+- **Rule it breaks:** every other room hides its schedule — hazards arrive and you react. Here the bell schedule is **posted on the wall and counting down**. The passing period isn't a wave to dodge, it's a wall: the room goes from empty to forty kids in one second, on a clock the player can read from the first frame.
+- **The obstacle:** the sit becomes a *planning* problem before it's a reaction problem — budget the whole run against a visible countdown, and decide early whether to floor it and eat the noise or ration and hope. Getting caught out isn't a knock; it's the room filling around you.
+- **Meters:** Composure (the countdown *is* the clock), Discretion (tolerance collapses to near-zero once the room fills).
+- **Hazards:** all existing. **The Announcement** as the bell — the same deadline event, only revealed in advance; a burst of **The Waiter** / **The Neighbor** through the passing period; the doorless-stall gag is **The Broken Latch** with the drift taken out — it simply never shuts.
+- **Build cost:** 🟡 — the events are ones we have; what's new is the *telegraph* (a schedule readout, and event fire-times exposed to the HUD). Still a seeded event per spec §17; we're only showing the player when it lands.
+- **Why it earns a slot:** it's the one level where the right play is decided before you push. Every other room teaches reading the moment; this one teaches spending a run.
+- **Open:** does a visible countdown collide with the **Cover Window** levels? The bet: Church/Rave telegraph a window you react *into*, seconds ahead — the bell telegraphs the whole run from t=0. If playtest says they feel the same, the bell needs a second beat of its own.
+
+### H. Take away the reset
+
+#### 🧟 Zombie Apocalypse — *"noise never forgives"* · New
+> Absorbs the *haunted house* one-liner from spec §9 — same comedy register, with an actual rule under it.
+- **Rule it breaks:** everywhere else, Discretion recovers — go quiet and the pressure recedes. The horde doesn't forget. Noise is **cumulative and one-way**: every sound ratchets the safe-push cap permanently tighter, and the horde converges on your running total.
+- **The obstacle:** the run becomes a *budget* rather than a threshold. You're not staying under a line moment to moment — you're spending a fixed noise allowance across the whole sit, and every loud second bought early is one you won't have at the end, when you still have to finish *and* get out.
+- **Meters:** Discretion (as a one-way ratchet), Composure (the horde's arrival is the deadline).
+- **Hazards:** no new hazard type. **The Neighbor** supplies the cap — it now only ever tightens instead of flexing; **The Announcement** is the horde arriving as a hard deadline; the barricade beat is **The Broken Latch** with something worse on the other side.
+- **Build cost:** 🟢–🟡 (a monotonic accumulator on the existing Noise contribution, stepping the safe-push cap down in bands — no new meter, no new operator).
+- **Why it earns a slot:** the cheapest *strategic* change in this doc. The Push doesn't change and the hazards don't change; what changes is that mistakes stop being survivable, and that reframes the whole risk calculus from one accumulator.
+- **Open:** does the ratchet read as a new meter (§2's complexity budget)? The bet: it isn't one — the player still watches Discretion, which now has a floor that only rises. If it needs its own horde-proximity readout to be legible, that's a budget conversation.
+
 ---
 
 ## Recommended prototype order
@@ -148,6 +171,7 @@ Everything else is 🟢 reskins/variants we can slot in once the core hazard set
 ## Notes for the other docs
 
 - Several entries imply **new hazards not yet in the [Hazard Catalog](poo-sim-hazard-catalog.md)**: Sensor Flush, line-of-sight exposure, the Composure↔Discretion coupling, delayed Smell. When one gets greenlit, add it to the catalog in the catalog's entry shape (it already lists **The Peeker**, **The Draft**, **The Floater**, **Weak Flush** as backlog hazards). The **Cover Window / Hush** has since been greenlit, built, and cataloged — the model for that promotion.
+- **Groups G and H deliberately add no new hazard** — each is an existing hazard with one constant changed (a fire time revealed in advance; a cap that only tightens). If either ships, record it as a variant note on the parent hazard's entry rather than as a new catalog line.
 - New environments still obey the **Complexity Budget** (spec §2): no new meters, one decision at a time, explainable in a sentence.
 - Determinism/hazards-as-sabotage rules still apply — any new system fires from a seeded **event**, never a hardcoded timer (spec §17).
 
@@ -158,4 +182,6 @@ Everything else is 🟢 reskins/variants we can slot in once the core hazard set
 - [ ] **Co-ed bathroom's distinct hook** — what stops it reading as a second Work Bathroom?
 - [ ] **Cover-window readability** — can a player reliably *see* a safe window coming on a phone screen, or does it need an audio-led telegraph?
 - [ ] **Zero-G control** — does two-directional drive stay one-thumb-friendly, or does it break the one-hand pillar?
+- [ ] **The bell vs. the cover window** — does a run-long visible countdown play differently from a seconds-ahead telegraphed window, or is High School just the Church with a clock on the wall?
+- [ ] **The noise ratchet and the complexity budget** — is a one-way Discretion floor legible without a readout of its own, and would that readout be a fifth meter in all but name?
 - [ ] **Which of these are launch+1 vs. far backlog** — this doc is a menu, not a commitment; pick the slate once the vertical slice proves the core.

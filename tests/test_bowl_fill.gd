@@ -209,12 +209,17 @@ func test_an_active_jolt_reports_turbulence() -> void:
 	var slot := HazardSlot.new()
 	slot.kind = SimEvent.Kind.JOLT
 	slot.phase = HazardSlot.Phase.TELEGRAPH
-	slot.cost = 1.2
+	slot.cost = JoltHazard.FULL_SHAKE_IMPULSE
 	state.hazards.append(slot)
 	assert_eq(Hazards.turbulence(state), 0.0, "a telegraphing Jolt isn't shaking you yet")
 
 	slot.phase = HazardSlot.Phase.ACTIVE
 	assert_eq(Hazards.turbulence(state), 1.0, "a landed Jolt should shake you")
+
+	# ...and a gentler shove shakes you proportionally less, which is the whole
+	# reason this is a 0..1 scale rather than a flag.
+	slot.cost = JoltHazard.FULL_SHAKE_IMPULSE * 0.5
+	assert_eq(Hazards.turbulence(state), 0.5, "a half-strength jolt should half-shake you")
 
 
 ## Walk a pinned run and report the mean landing point across it.
