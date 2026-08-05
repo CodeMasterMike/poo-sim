@@ -109,9 +109,17 @@ var _knock_flash_good: bool = false
 # --- Overlays (pure view; the sim pauses while either is open) ---
 var _manual: ManualOverlay
 var _picker: LevelPicker
+## Edge tracker for the overlay pause. The input buffer is flushed on BOTH edges —
+## see _clear_input_buffer for why that is load-bearing rather than tidy.
+var _overlay_was_open: bool = false
 
 
 func _ready() -> void:
+	# The root must not pick up mouse events: gameplay input arrives through
+	# _unhandled_input, which only fires for events no Control took first. Leaving
+	# this at the Control default (STOP) would have the root swallow every click
+	# during the GUI pass, and the HUD buttons would never get one.
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_reset()
 	_manual = ManualOverlay.new()
 	add_child(_manual)
@@ -125,6 +133,30 @@ func _ready() -> void:
 
 func _holding_now() -> bool:
 	return _auto_hold or _mouse_down or _key_down or not _touches.is_empty()
+
+
+func _overlays_open() -> bool:
+	return (_manual != null and _manual.is_open()) or (_picker != null and _picker.is_open())
+
+
+## Drop every held key, button and finger, and any queued edge.
+##
+## Called on both edges of the overlay pause, because a press and its release can
+## straddle one. _unhandled_input returns early while an overlay is open, and an
+## open overlay's panel eats mouse and touch events during the GUI pass — so the
+## RELEASE never arrives, and the flag stayed set forever. Holding Space and
+## pressing H, then letting go and pressing H again, left the sitter pushing at
+## full force with nothing held: the needle pinned to the top of the red zone and
+## the run played itself out. Same trap on touch, with a second finger on "?".
+##
+## Flushing on the way IN matters too: the sit is paused under an overlay, so
+## resuming mid-push would hand back a needle the player let go of a menu ago.
+func _clear_input_buffer() -> void:
+	_mouse_down = false
+	_key_down = false
+	_touches.clear()
+	_tap_queued = false
+	_swipe_queued = Vector2.ZERO
 
 
 ## Read-only access to the model for debug tooling. The view itself only ever
@@ -168,7 +200,14 @@ func _set_auto_play(enabled: bool) -> void:
 		_auto_hold = false
 
 
-func _input(event: InputEvent) -> void:
+## Gameplay input, and deliberately _unhandled_input rather than _input.
+##
+## _input runs BEFORE the GUI pass, so the HUD buttons ("?" and "LEVEL") used to
+## leak: a press on either also began a push, its release queued a tap that
+## dismissed a live Buzz for free, and after a run had ended the same press both
+## retried the run and opened the overlay it was aimed at. _unhandled_input only
+## sees what no Control claimed, so a button press is now a button press.
+func _unhandled_input(event: InputEvent) -> void:
 	# An open overlay (manual or level picker) owns input: H/Esc close it, everything
 	# else is swallowed so a menu tap can't leak into a push, tap, or retry.
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -230,7 +269,16 @@ func _process(delta: float) -> void:
 	_t += delta
 	# An open overlay pauses the sitting — no clock drain, no hazards advancing.
 	# (_accum only grows inside _advance_sim, so time can't pile up while paused.)
-	if (_manual != null and _manual.is_open()) or (_picker != null and _picker.is_open()):
+	#
+	# Watched as an EDGE, and flushed on both of them. Every route in and out of an
+	# overlay lands here — the H/Esc keys, the "?" and "LEVEL" buttons, and the
+	# panels' own CLOSE buttons — so this one check covers them all, where hooking
+	# the individual callers would miss whichever one was added next.
+	var overlay_open := _overlays_open()
+	if overlay_open != _overlay_was_open:
+		_overlay_was_open = overlay_open
+		_clear_input_buffer()
+	if overlay_open:
 		return
 	_advance_sim(delta)
 
