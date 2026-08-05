@@ -333,6 +333,12 @@ func _advance_sim(real_dt: float) -> void:
 		_clock.advance()
 		_accum -= SimClock.FIXED_DT
 		steps += 1
+	# DROP whatever the step cap couldn't take. Capping the steps alone is only half
+	# the guard: below ~7.5fps a frame arrives with more than MAX_STEPS_PER_FRAME
+	# worth of time in it, the remainder stays banked, and the sim falls further
+	# behind wall-clock every frame while never catching up. Sim time is allowed to
+	# run slow on a struggling device; it is not allowed to owe an unpayable debt.
+	_accum = minf(_accum, SimClock.FIXED_DT * float(MAX_STEPS_PER_FRAME))
 
 
 ## Build exactly one intent for this step, consuming any queued edges so each tap
