@@ -29,22 +29,14 @@ func _level(base_thickness: float = 0.5) -> LevelDef:
 func _band_mid(level: LevelDef) -> float:
 	if level.flow_bands.is_empty():
 		return 0.5
-	var band: Vector2 = level.flow_bands[0]
-	return (band.x + band.y) * 0.5
-
-
-func _state(level: LevelDef) -> SimState:
-	var s := SimState.new()
-	s.flow_bands = level.flow_bands.duplicate()
-	s.flow_target_bands = level.flow_bands.duplicate()
-	s.thickness = level.thickness_base
-	return s
+	var span := SimState.span_of(level.flow_bands)
+	return (span.x + span.y) * 0.5
 
 
 ## Hold for `seconds` at a fixed needle height, with the needle PINNED — the point
 ## is to isolate fill from the needle physics, so each step re-clamps it.
 func _run_pinned(level: LevelDef, needle: float, seconds: float) -> SimState:
-	var state := _state(level)
+	var state := SimState.for_level(level)
 	var clock := SimClock.new(1337)
 	var sim := PushSim.new()
 	var intent := PlayerIntent.new()
@@ -80,7 +72,7 @@ func test_position_inside_the_flow_band_changes_the_rate() -> void:
 func test_fill_rate_rises_monotonically_with_the_needle() -> void:
 	var level := _level()
 	var band: Vector2 = level.flow_bands[0]
-	var s := _state(level)
+	var s := SimState.for_level(level)
 	var samples := [0.0, band.x * 0.5, band.x, (band.x + band.y) * 0.5, band.y, 1.0]
 	var prev := -1.0
 	for n in samples:
@@ -94,7 +86,7 @@ func test_fill_rate_rises_monotonically_with_the_needle() -> void:
 ## every pacing number in LevelDef (the 80s Composure, the 45-75s sit) is invalid.
 func test_neutral_thickness_preserves_the_tuned_anchors() -> void:
 	var level := _level(0.5)
-	var s := _state(level)
+	var s := SimState.for_level(level)
 	s.needle = 1.0
 	assert_eq(PushSim.density_of(0.5, level), 1.0, "0.5 thickness must be a 1.0x multiplier")
 	assert_eq(PushSim.flow_rate(s, level), level.fill_red, "needle 1.0 must pay fill_red")
@@ -111,7 +103,7 @@ func test_neutral_thickness_preserves_the_tuned_anchors() -> void:
 ## read a Knock freeze gives, but for the ordinary case of simply letting go.
 func test_nothing_comes_out_with_the_needle_on_the_floor() -> void:
 	var level := _level()
-	var s := _state(level)
+	var s := SimState.for_level(level)
 	s.needle = 0.0
 	assert_eq(PushSim.flow_rate(s, level), 0.0, "a resting needle must produce nothing")
 
@@ -131,7 +123,7 @@ func test_never_pushing_produces_nothing() -> void:
 ## needle drifts across the line.
 func test_the_gate_eases_in_rather_than_snapping() -> void:
 	var level := _level()
-	var s := _state(level)
+	var s := SimState.for_level(level)
 	var seen: Array[float] = []
 	for f in [0.0, 0.25, 0.5, 0.75, 1.0]:
 		s.needle = level.fill_cutoff * f
@@ -147,7 +139,7 @@ func test_the_gate_eases_in_rather_than_snapping() -> void:
 func test_a_zero_cutoff_disables_the_gate() -> void:
 	var level := _level()
 	level.fill_cutoff = 0.0
-	var s := _state(level)
+	var s := SimState.for_level(level)
 	s.needle = 0.0
 	assert_eq(PushSim.flow_rate(s, level), level.fill_dead, "needle 0 should pay fill_dead again")
 
@@ -441,7 +433,7 @@ func _drop_span(level: LevelDef, needle: float, seconds: float) -> float:
 
 
 func _drop_samples(level: LevelDef, needle: float, seconds: float) -> Array:
-	var state := _state(level)
+	var state := SimState.for_level(level)
 	var clock := SimClock.new(1337)
 	var sim := PushSim.new()
 	var intent := PlayerIntent.new()

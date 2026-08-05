@@ -384,7 +384,7 @@ func _reset() -> void:
 	_clock = SimClock.new(_match.match_seed)
 	# Roll the schedule's randomness from the match seed, before the first tick.
 	_level.resolve_timeline(SimClock.FIXED_DT, _clock.rng)
-	_state = _initial_state(_level)
+	_state = SimState.for_level(_level)
 	_sim = PushSim.new()
 	_scheduler = EventScheduler.new()
 	_scheduler.load_timeline(_level.timeline)
@@ -397,20 +397,6 @@ func _reset() -> void:
 	_shake = Vector2.ZERO
 	_last_hazard_pulse = 0
 	_knock_flash = 0.0
-
-
-func _initial_state(level: LevelDef) -> SimState:
-	var s := SimState.new()
-	s.flow_bands = level.flow_bands.duplicate()
-	s.flow_target_bands = level.flow_bands.duplicate()
-	# Start at the level's own consistency, not the neutral default — otherwise
-	# every sit opens the same and eases into its character a second later.
-	s.thickness = level.thickness_base
-	s.composure = 100.0
-	s.composure_start = 100.0
-	s.discretion = 100.0
-	s.cleanliness = 100.0
-	return s
 
 
 # ------------------------------------------------------------------ rendering
@@ -1037,7 +1023,7 @@ func _on_level_chosen(index: int) -> void:
 
 
 func _is_quiet_room() -> bool:
-	return _level != null and _level.silence_noise_rate > 0.0
+	return _level != null and _level.is_quiet_room()
 
 
 ## The core read of a quiet-room level: is it safe to push right now, and is a

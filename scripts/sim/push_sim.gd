@@ -127,8 +127,8 @@ func tick(state: SimState, intent: PlayerIntent, clock: SimClock, level: LevelDe
 	# `holding` (not just needle position) on purpose — acoustic windows telegraph
 	# their start but not their end, so the needle coasting back down after you
 	# RELEASE must be free, or you'd be punished for a fall you couldn't anticipate.
-	# Gated by silence_noise_rate so every non-quiet level (rate 0) is untouched.
-	if level.silence_noise_rate > 0.0 and intent.holding \
+	# Gated on is_quiet_room() so every ordinary level is untouched.
+	if level.is_quiet_room() and intent.holding \
 			and state.needle > level.silence_push_cap and Hazards.room_exposed(state, level):
 		disc_loss += level.silence_noise_rate * dt
 	state.discretion = clampf(state.discretion - disc_loss, 0.0, 100.0)
@@ -140,12 +140,10 @@ func tick(state: SimState, intent: PlayerIntent, clock: SimClock, level: LevelDe
 static func zone_of(state: SimState) -> int:
 	if state.flow_bands.is_empty():
 		return ZONE_DEAD
-	var highest := state.flow_bands[0].y
 	for band in state.flow_bands:
 		if state.needle >= band.x and state.needle <= band.y:
 			return ZONE_FLOW
-		highest = maxf(highest, band.y)
-	return ZONE_RED if state.needle > highest else ZONE_DEAD
+	return ZONE_RED if state.needle > state.band_span().y else ZONE_DEAD
 
 
 ## How fast matter is moving, as a CONTINUOUS function of the needle.
@@ -188,16 +186,15 @@ static func _curve_rate(state: SimState, level: LevelDef) -> float:
 	var flow_hi := level.fill_flow * (1.0 + level.fill_flow_spread)
 	var n := state.needle
 
-	var lowest := state.flow_bands[0].x
-	var highest := state.flow_bands[0].y
 	for band in state.flow_bands:
-		lowest = minf(lowest, band.x)
-		highest = maxf(highest, band.y)
 		if n >= band.x and n <= band.y:
 			# Inside a band: floor pays flow_lo, ceiling pays flow_hi.
 			return lerpf(flow_lo, flow_hi, inverse_lerp(band.x, band.y, n)) \
 					if band.y > band.x else level.fill_flow
 
+	var span := state.band_span()
+	var lowest := span.x
+	var highest := span.y
 	if n > highest:
 		# Above everything: ramp from the top band's ceiling up to the red anchor.
 		return lerpf(flow_hi, level.fill_red, 0.0 if highest >= 1.0 \
@@ -222,15 +219,23 @@ static func density_of(thickness: float, level: LevelDef) -> float:
 ## and the landing point are measured from here rather than from a fixed 0.5, so
 ## when the timeline shifts the band the whole model re-centres with it instead of
 ## quietly stranding the player on one side of it.
+##
+## THE definition of "the middle of the band", and now the only one. The Jolt's
+## re-centre and the debug auto-player each carried their own, taking the midpoint
+## of `flow_bands[0]` instead of the midpoint of the whole span. With one band
+## those agree exactly, so no shipped level ever saw the difference — which is
+## precisely why two of them could sit there unnoticed.
+##
+## Caveat for the first SPLIT level: the midpoint of the span falls in the GAP
+## between two bands, which `_curve_rate` pays at the dead rate. That is fine as a
+## reference point for consistency and sway, and wrong as a re-centre target — a
+## split zone will want a "nearest point inside a band" alongside this, not
+## instead of it.
 static func band_centre(state: SimState) -> float:
 	if state.flow_bands.is_empty():
 		return 0.5
-	var lowest := state.flow_bands[0].x
-	var highest := state.flow_bands[0].y
-	for band in state.flow_bands:
-		lowest = minf(lowest, band.x)
-		highest = maxf(highest, band.y)
-	return (lowest + highest) * 0.5
+	var span := state.band_span()
+	return (span.x + span.y) * 0.5
 
 
 ## Where the stream is landing, as a fraction across the bowl. Static and shared

@@ -112,14 +112,11 @@ static func cover(t: float, telegraph: float, duration: float) -> SimEvent:
 	return SimEvent.new(t, Kind.COVER, CoverPayload.new(telegraph, duration))
 
 
-## A HUSH is the Rave's inverse of a Cover Window: the bass drops and the crowd
-## goes quiet, so the room flips from covered to EXPOSED for the window. It's the
-## exact same acoustic-window machinery (COVER kind) — what differs is the level's
-## `baseline_exposed`: in the Church (exposed baseline) a window shields you, in the
-## Rave (covered baseline) a window exposes you. Authoring reads correctly either
-## way: cover() in the Church, hush() in the Rave.
-static func hush(t: float, telegraph: float, duration: float) -> SimEvent:
-	return SimEvent.new(t, Kind.COVER, CoverPayload.new(telegraph, duration))
+# (There was a `hush()` here too — a byte-for-byte copy of cover(), so that the
+# Rave could author in its own vocabulary. QuietRoom.window() took that job over
+# and every caller went through it, leaving hush() dead and cover() with a twin
+# that could only ever drift. A hush IS a cover window; the level's
+# `baseline_exposed` is what decides whether a window shields or exposes.)
 
 
 # --- Typed payloads (inner classes: referenced as SimEvent.FlowZonePayload etc.) ---

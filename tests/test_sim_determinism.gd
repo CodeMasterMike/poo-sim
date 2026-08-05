@@ -17,14 +17,6 @@ func _make_level() -> LevelDef:
 	return LevelGreybox.build(Tuning.base())
 
 
-func _initial_state(level: LevelDef) -> SimState:
-	var s := SimState.new()
-	s.flow_bands = level.flow_bands.duplicate()
-	s.flow_target_bands = level.flow_bands.duplicate()
-	s.thickness = level.thickness_base
-	return s
-
-
 ## Run a whole match headlessly and return the final SimState. `make_level` must
 ## return a FRESH LevelDef each call — resolve_timeline() fixes trigger points in
 ## place, so reusing one level across runs would double-apply jitter.
@@ -34,7 +26,7 @@ func _run(make_level: Callable, seed_value: int, hold_pattern: Callable, max_ste
 	var level: LevelDef = make_level.call()
 	var clock := SimClock.new(seed_value)
 	level.resolve_timeline(SimClock.FIXED_DT, clock.rng)
-	var state := _initial_state(level)
+	var state := SimState.for_level(level)
 	var sim := PushSim.new()
 	var scheduler := EventScheduler.new()
 	scheduler.load_timeline(level.timeline)

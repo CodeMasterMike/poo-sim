@@ -57,9 +57,7 @@ func test_relief_trigger_fires_on_progress_not_time() -> void:
 	level.resolve_timeline(SimClock.FIXED_DT, rng)
 
 	var clock := SimClock.new(1337)
-	var state := SimState.new()
-	state.flow_bands = level.flow_bands.duplicate()
-	state.flow_target_bands = level.flow_bands.duplicate()
+	var state := SimState.for_level(level)
 	var sim := PushSim.new()
 	var scheduler := EventScheduler.new()
 	scheduler.load_timeline(level.timeline)

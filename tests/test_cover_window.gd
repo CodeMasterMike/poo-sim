@@ -33,17 +33,10 @@ func _make_room(baseline_exposed: bool, with_window: bool, cap: float) -> LevelD
 	return level
 
 
-func _initial_state(level: LevelDef) -> SimState:
-	var s := SimState.new()
-	s.flow_bands = level.flow_bands.duplicate()
-	s.flow_target_bands = level.flow_bands.duplicate()
-	return s
-
-
 func _run(level: LevelDef, seed_value: int, hold_pattern: Callable, steps: int) -> SimState:
 	var clock := SimClock.new(seed_value)
 	level.resolve_timeline(SimClock.FIXED_DT, clock.rng)
-	var state := _initial_state(level)
+	var state := SimState.for_level(level)
 	var sim := PushSim.new()
 	var scheduler := EventScheduler.new()
 	scheduler.load_timeline(level.timeline)

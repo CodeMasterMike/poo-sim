@@ -3,11 +3,11 @@ extends RefCounted
 ## Shared construction for the acoustic-window pair — the Church and the Rave.
 ##
 ## These are ONE rule at two polarities, not two levels. The window machinery is
-## literally identical: `SimEvent.cover()` and `SimEvent.hush()` are the same
-## constructor under two names, and `Hazards.room_exposed` resolves the meaning as
-## `baseline_exposed XOR window_active`. The Church is exposed by default so a
-## window shields you; the Rave is covered by default so a window exposes you.
-## That single bit is the entire difference.
+## literally identical — one `SimEvent.cover()` serves both — and
+## `Hazards.room_exposed` resolves the meaning as `baseline_exposed XOR
+## window_active`. The Church is exposed by default so a window shields you; the
+## Rave is covered by default so a window exposes you. That single bit is the
+## entire difference.
 ##
 ## Both levels were nonetheless written out longhand, which meant the shared
 ## numbers lived in two files and could drift apart independently — most sharply
@@ -31,10 +31,7 @@ const NOISE_RATE: float = 14.0
 static func flow_floor(level: LevelDef) -> float:
 	if level.flow_bands.is_empty():
 		return 0.5
-	var lowest: float = level.flow_bands[0].x
-	for band in level.flow_bands:
-		lowest = minf(lowest, band.x)
-	return lowest
+	return SimState.span_of(level.flow_bands).x
 
 
 ## Turn a LevelDef into a quiet room of the given polarity.

@@ -65,10 +65,11 @@ static func tick(state: SimState, slot: HazardSlot, intent: PlayerIntent, level:
 
 
 ## Kill the imparted momentum and drag the needle back toward the Flow band.
+##
+## Asks PushSim where the middle of the band is rather than working it out from
+## `flow_bands[0]` — see PushSim.band_centre, which is the single definition now.
 static func _recenter(state: SimState, level: LevelDef) -> void:
 	state.needle_vel = 0.0
 	if state.flow_bands.is_empty():
 		return
-	var band: Vector2 = state.flow_bands[0]
-	var mid: float = (band.x + band.y) * 0.5
-	state.needle = lerpf(state.needle, mid, level.jolt_recenter)
+	state.needle = lerpf(state.needle, PushSim.band_centre(state), level.jolt_recenter)

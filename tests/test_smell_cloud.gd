@@ -21,20 +21,13 @@ func _make_level() -> LevelDef:
 	return level
 
 
-func _initial_state(level: LevelDef) -> SimState:
-	var s := SimState.new()
-	s.flow_bands = level.flow_bands.duplicate()
-	s.flow_target_bands = level.flow_bands.duplicate()
-	return s
-
-
 ## `swipe_pattern` is Callable(step) -> Vector2, so a waft is a pure function of
 ## the step exactly like the hold pattern.
 func _run(make_level: Callable, hold_pattern: Callable, swipe_pattern: Callable, steps: int) -> SimState:
 	var level: LevelDef = make_level.call()
 	var clock := SimClock.new(1337)
 	level.resolve_timeline(SimClock.FIXED_DT, clock.rng)
-	var state := _initial_state(level)
+	var state := SimState.for_level(level)
 	var sim := PushSim.new()
 	var scheduler := EventScheduler.new()
 	scheduler.load_timeline(level.timeline)
@@ -70,7 +63,7 @@ func test_flow_pushing_emits_no_cloud() -> void:
 	var level := _make_level()
 	var mid: float = (level.flow_bands[0].x + level.flow_bands[0].y) * 0.5
 	var clock := SimClock.new(1337)
-	var state := _initial_state(level)
+	var state := SimState.for_level(level)
 	var sim := PushSim.new()
 	# A bang-bang controller that parks the needle inside the Flow band.
 	for _i in int(20.0 / SimClock.FIXED_DT):

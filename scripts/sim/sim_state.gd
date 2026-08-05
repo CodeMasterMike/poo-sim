@@ -122,6 +122,45 @@ func _init() -> void:
 	bowl.resize(BOWL_COLUMNS)
 
 
+## A state seeded for a level, ready for the first tick.
+##
+## THE way to build one. The view and four test suites each grew their own copy of
+## this, and they had already drifted — only some seeded `thickness` from the
+## level's baseline, so the suites were ticking a sitter the game never produces.
+## The meters aren't set here: their field defaults above already are the opening
+## values, and repeating them was half of what let the copies disagree.
+static func for_level(level: LevelDef) -> SimState:
+	var s := SimState.new()
+	s.flow_bands = level.flow_bands.duplicate()
+	s.flow_target_bands = level.flow_bands.duplicate()
+	# Open at the level's OWN consistency, not the neutral default — otherwise every
+	# sit starts the same and eases into its character a second later.
+	s.thickness = level.thickness_base
+	s.composure_start = s.composure
+	return s
+
+
+## The outer edges of the Flow Zone as (lowest floor, highest ceiling).
+##
+## One implementation of a loop that had been written out four times — in
+## `zone_of`, in `_curve_rate`, in `band_centre`, and again in
+## `QuietRoom.flow_floor`. Static so it serves a LevelDef's authored bands as well
+## as a SimState's live (ramping) ones.
+static func span_of(bands: Array[Vector2]) -> Vector2:
+	if bands.is_empty():
+		return Vector2(0.0, 0.0)
+	var span := Vector2(bands[0].x, bands[0].y)
+	for band in bands:
+		span.x = minf(span.x, band.x)
+		span.y = maxf(span.y, band.y)
+	return span
+
+
+## This state's live band span. The bands ramp, so this moves with them.
+func band_span() -> Vector2:
+	return span_of(flow_bands)
+
+
 func flow_ratio() -> float:
 	return 0.0 if total_fill <= 0.0 else flow_fill / total_fill
 

@@ -28,8 +28,3 @@ func _init(seed_value: int = 0) -> void:
 
 func advance() -> void:
 	step += 1
-
-
-func reset(seed_value: int) -> void:
-	step = 0
-	rng.seed = seed_value

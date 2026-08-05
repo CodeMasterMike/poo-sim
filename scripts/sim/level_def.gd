@@ -185,6 +185,16 @@ extends Resource
 var timeline: Array[SimEvent] = []
 
 
+## Does this level police silence at all (Church, Rave)? A rate of 0 means the
+## whole quiet-room system is a no-op here, which is every ordinary venue.
+##
+## Named rather than left as a bare `silence_noise_rate > 0.0`, which is how the
+## sim, the view and the debug auto-player each used to ask it — three spellings of
+## one rule, and nothing tying them together if the rule ever gained a second term.
+func is_quiet_room() -> bool:
+	return silence_noise_rate > 0.0
+
+
 ## Fix every event's trigger point for this match, rolling any jitter from the
 ## match-seeded RNG. Call once, after the SimClock exists and before the
 ## scheduler loads the timeline. Iterating in authored order keeps the RNG pull
