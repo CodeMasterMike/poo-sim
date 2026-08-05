@@ -98,8 +98,58 @@ func test_neutral_thickness_preserves_the_tuned_anchors() -> void:
 	s.needle = 1.0
 	assert_eq(PushSim.density_of(0.5, level), 1.0, "0.5 thickness must be a 1.0x multiplier")
 	assert_eq(PushSim.flow_rate(s, level), level.fill_red, "needle 1.0 must pay fill_red")
+	# The dead anchor is now the shape of the curve's bottom, not a rate you can
+	# actually collect at rest — the push gate zeroes it. Checked just above the
+	# cutoff, where the gate is fully open again.
+	s.needle = level.fill_cutoff
+	assert_true(PushSim.flow_rate(s, level) > 0.0, "past the cutoff, flow should resume")
+
+
+# ------------------------------------------------------------------ the gate
+
+## Needle on the floor means you aren't pushing, so nothing comes out — the same
+## read a Knock freeze gives, but for the ordinary case of simply letting go.
+func test_nothing_comes_out_with_the_needle_on_the_floor() -> void:
+	var level := _level()
+	var s := _state(level)
 	s.needle = 0.0
-	assert_eq(PushSim.flow_rate(s, level), level.fill_dead, "needle 0 must pay fill_dead")
+	assert_eq(PushSim.flow_rate(s, level), 0.0, "a resting needle must produce nothing")
+
+
+## And a whole run of never pushing produces nothing at all — no Relief, and an
+## empty bowl. Previously this trickled in at fill_dead the entire time.
+func test_never_pushing_produces_nothing() -> void:
+	var level := _level()
+	var state := _run_pinned(level, 0.0, 10.0)
+
+	assert_eq(state.relief, 0.0, "idling should not fill Relief")
+	assert_eq(state.total_fill, 0.0, "idling should not register any fill")
+	assert_eq(state.bowl_mass(), 0.0, "idling should put nothing in the bowl")
+
+
+## It FADES rather than switching, so the stream doesn't pop on and off as the
+## needle drifts across the line.
+func test_the_gate_eases_in_rather_than_snapping() -> void:
+	var level := _level()
+	var s := _state(level)
+	var seen: Array[float] = []
+	for f in [0.0, 0.25, 0.5, 0.75, 1.0]:
+		s.needle = level.fill_cutoff * f
+		seen.append(PushSim.flow_rate(s, level))
+
+	assert_eq(seen[0], 0.0, "closed at the floor")
+	assert_gt(seen[4], seen[2], "and rising through the fade")
+	assert_gt(seen[2], seen[1], "no single step should carry the whole opening")
+
+
+## Setting the cutoff to 0 restores the old always-on behaviour, so a level that
+## wants a permanently-leaking sitter can still have one.
+func test_a_zero_cutoff_disables_the_gate() -> void:
+	var level := _level()
+	level.fill_cutoff = 0.0
+	var s := _state(level)
+	s.needle = 0.0
+	assert_eq(PushSim.flow_rate(s, level), level.fill_dead, "needle 0 should pay fill_dead again")
 
 
 ## The headline of the change: thicker fills faster, on identical inputs.

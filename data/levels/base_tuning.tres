@@ -12,6 +12,7 @@ flow_bands = Array[Vector2]([Vector2(0.5, 0.72)])
 fill_dead = 0.5
 fill_flow = 2.2
 fill_red = 4.5
+fill_cutoff = 0.12
 fill_flow_spread = 0.25
 thickness_base = 0.5
 thickness_push_gain = 0.9

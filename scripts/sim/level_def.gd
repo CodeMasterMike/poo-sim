@@ -37,6 +37,15 @@ extends Resource
 ## flow once stalls were counted, so the greedy line was strictly dominated and
 ## nobody would ever take it.)
 @export var fill_red: float = 4.5    ## rate at needle 1.0
+## The needle level below which flow fades out entirely. At needle 0 nothing comes
+## out AT ALL — you aren't pushing, so nothing is moving. Above this the anchors
+## below take over unchanged.
+##
+## The dead zone used to trickle at `fill_dead` all the way down to a resting
+## needle, so a sitter doing nothing still produced. Faded rather than switched, or
+## the stream pops on and off as the needle drifts over the line. 0 disables the
+## gate and restores the old always-on behaviour.
+@export var fill_cutoff: float = 0.12
 ## How much the rate varies ACROSS the Flow band, either side of `fill_flow`.
 ## At 0.25 the band's ceiling pays 2.75%/s and its floor 1.65%/s — so riding the
 ## top edge is a third faster, and the band stops being a flat plateau you can

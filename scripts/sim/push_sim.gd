@@ -149,7 +149,30 @@ static func zone_of(state: SimState) -> int:
 ##
 ## The three anchors keep their exact meaning; only the space between them is
 ## interpolated. Set `fill_flow_spread` to 0 to get the old step function back.
+##
+## Everything below is then gated by `_push_gate`: with the needle on the floor
+## you are not pushing, so nothing comes out at all.
 static func flow_rate(state: SimState, level: LevelDef) -> float:
+	return _curve_rate(state, level) * _push_gate(state.needle, level)
+
+
+## Nothing moves unless you are actually bearing down.
+##
+## The dead zone used to still trickle at `fill_dead` all the way down to a needle
+## resting on zero, which meant a sitter doing nothing at all was still producing —
+## the same wrong read a Knock freeze exists to prevent, except permanent.
+##
+## Eased rather than switched: a hard cut would pop the stream on and off as the
+## needle drifted across the threshold. At needle 0 it is exactly zero, which is
+## the part that matters.
+static func _push_gate(needle: float, level: LevelDef) -> float:
+	if level.fill_cutoff <= 0.0:
+		return 1.0
+	return smoothstep(0.0, level.fill_cutoff, needle)
+
+
+## The rate curve itself, ungated — what the anchors describe.
+static func _curve_rate(state: SimState, level: LevelDef) -> float:
 	if state.flow_bands.is_empty():
 		return level.fill_dead
 	var flow_lo := level.fill_flow * (1.0 - level.fill_flow_spread)
