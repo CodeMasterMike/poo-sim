@@ -14,8 +14,12 @@ extends RefCounted
 ##
 ## Content only: nothing here reaches into scripts/sim/.
 
-## You're pushing most of the sit, so it's a quicker, more forgiving level.
-const COMPOSURE_SECONDS: float = 85.0
+## You're pushing most of the sit, so it's a quicker level than the Church — a
+## careful run is ~57s against the Church's ~64s, and the clock is scaled to match
+## (75 against 85, near enough the same ratio in both). Lands a careful run at
+## ~17% remaining: the tightest of the three, which is the point — in the Rave
+## there is far less reason to be standing around.
+const COMPOSURE_SECONDS: float = 75.0
 ## Easing off through a hush is correct, so the anti-turtle dead-zone drain is
 ## softened — but less than the Church's, because hushes are brief.
 const DEAD_DRAIN: float = 1.2

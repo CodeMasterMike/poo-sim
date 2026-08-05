@@ -126,9 +126,17 @@ extends Resource
 @export var splash_stall_time: float = 0.5 ## seconds Relief is frozen after a splash
 
 # --- Four-meter tuning ---
-## 80s of Composure against a ~57s ideal fill. At 60 even a flawless run ran out
-## of clock at ~92% Relief — the sit was literally unwinnable.
-@export var composure_seconds: float = 80.0    ## full Composure lasts ~this long at flow baseline
+## 60s against a ~39s careful run and a ~23s aggressive one (measured on the
+## grey-box). Was 80 back when the sit ended on a full mass counter and took
+## ~57s; once the run started ending at the goal LINE it got much shorter, and 80
+## left the clock with nothing to say — a careful run still finished with 39% in
+## hand. At 60 that careful line lands at ~21% and a hard push at ~40%: tight
+## enough to matter, not so tight that playing safe loses.
+##
+## Careful play, not fast play, sets the floor here. The aggressive line finishes
+## in half the time, so it is always comfortable on the clock; what a shorter
+## clock actually disciplines is dawdling.
+@export var composure_seconds: float = 60.0    ## full Composure lasts ~this long at flow baseline
 @export var composure_drain_dead: float = 1.7  ## drain multiplier while in the dead zone
 @export var composure_drain_red: float = 1.3   ## drain multiplier while in the red zone
 @export var splash_cleanliness_hit: float = 12.0 ## Cleanliness lost per splash

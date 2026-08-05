@@ -324,6 +324,11 @@ func test_a_firm_pile_reaches_the_line_on_less_than_a_runny_one() -> void:
 	firm.thickness_push_gain = 0.0
 	var runny := _level(0.0)
 	runny.thickness_push_gain = 0.0
+	# Both get an unlimited clock. This is about SHAPE — how much mass each needs
+	# to reach the line — and at the shipped 60s a fully-runny level genuinely
+	# can't get there, which would make this fail for an unrelated reason.
+	firm.composure_seconds = 1000.0
+	runny.composure_seconds = 1000.0
 
 	var a := _run_pinned(firm, _band_mid(firm), 200.0)
 	var b := _run_pinned(runny, _band_mid(runny), 200.0)

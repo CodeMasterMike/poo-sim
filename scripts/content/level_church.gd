@@ -12,8 +12,14 @@ extends RefCounted
 ##
 ## Content only: nothing here reaches into scripts/sim/.
 
-## A longer, tenser sit: you spend real time waiting for cover.
-const COMPOSURE_SECONDS: float = 105.0
+## A longer, tenser sit: you spend real time waiting for cover, so this stays the
+## most generous clock of the three — a careful Church run is ~64s against the
+## grey-box's ~39s, and waiting for cover is the CORRECT play, not dawdling.
+##
+## 85 lands that careful line at ~25% remaining. The Church's real threat was
+## never the clock (a hard push finishes in ~19s and walks away with ~71% in
+## hand); it's Discretion. The clock is only here to stop you waiting forever.
+const COMPOSURE_SECONDS: float = 85.0
 ## Easing off in the hush is the CORRECT play here, so the anti-turtle dead-zone
 ## drain is neutered entirely — otherwise the level would punish you for playing
 ## it right.
