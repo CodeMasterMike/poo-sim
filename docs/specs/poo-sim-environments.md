@@ -105,6 +105,15 @@ A new system: an external noise source that periodically makes loud play safe (o
 - **Hazards:** a Noise multiplier + an attendant (Waiter/Neighbor hybrid) + the recognizable-shoes gag.
 - **Build cost:** 🟢.
 
+#### 🛝 Playground Porta-Potty — *"the clock is the tell"* · New
+> **Read the warning first:** this is the Festival Porta-Potty's box, wobble and Empty Roll. Without the rule below it is **wallpaper** — the exact failure §9's selection principle exists to prevent. It ships with the rule or it doesn't ship.
+- **Rule it breaks:** Discretion stops measuring *noise* and starts measuring **elapsed time**. Nobody out there can hear you over the kids — but you are a parent who walked away from a birthday party, and the longer the door stays shut the more the outside world wonders where you went. Going quiet buys you nothing; only *finishing* does.
+- **The obstacle:** it kills the turtle strategy from a new direction. Dead Leg punishes stalling through Composure, which the player can nurse; here stalling is *directly* the thing that exposes you, so every defensive "wait it out" answer they've learned in ten levels is actively wrong.
+- **Meters:** Discretion (driven by duration, not sound), Composure.
+- **Hazards:** reuses the Festival kit — **Jolt** (kids rocking the unit), **The Broken Latch**, **Empty Roll** — over a Discretion drain keyed to elapsed time rather than Noise. The escalating "where'd you go?" beat is **The Waiter** with the queue outside replaced by your own party.
+- **Build cost:** 🟢 (retarget the Discretion input on an existing level kit).
+- **Framing note:** play it as *the parent who ducked out of the party* — the anxiety is social absence, not suspicion. The "lone adult lingering at a playground" read is one step away and is not a joke this game should be making; the birthday-party framing keeps the duration rule and drops that entirely.
+
 ### D. Couple two meters together
 
 #### 🏥 Hospital — *"your panic gives you away"* · Backlog
@@ -155,6 +164,18 @@ A new system: an external noise source that periodically makes loud play safe (o
 - **Why it earns a slot:** the cheapest *strategic* change in this doc. The Push doesn't change and the hazards don't change; what changes is that mistakes stop being survivable, and that reframes the whole risk calculus from one accumulator.
 - **Open:** does the ratchet read as a new meter (§2's complexity budget)? The bet: it isn't one — the player still watches Discretion, which now has a floor that only rises. If it needs its own horde-proximity readout to be legible, that's a budget conversation.
 
+### I. Move the finish line
+
+#### 🏡 Guest Bathroom at a Friend's House — *"finishing isn't winning"* · New
+- **Rule it breaks:** every other level is decided during **② The Sit**, and **③ The Getaway** is a 3–5s seasoning beat (spec §3). Here that inverts: hitting 100% Relief is the *halfway* point, because you have to walk back out and sit with these people. The evidence outlives you — no fan, no window, a flush that's the loudest thing in a quiet house, and a smell on a timer in a room the next guest is walking into.
+- **The obstacle:** a real second act. Once Relief closes, the meters that matter flip to Cleanliness and Discretion, and the choices are all lose-lose: flush now (loud, and everyone in the living room hears the second one) or wait it out (quiet, but the clock is running); use the decorative hand towel nobody has ever used; deal with a **Clog Risk** you cannot ask for help with. Every other room lets you leave the mess behind. This one makes you host it.
+- **Meters:** Cleanliness and Discretion (both come due *after* Relief), Composure (the second-act clock).
+- **Hazards:** reuses **Clog Risk** (as an unaskable social catastrophe rather than a fail state), **Smell Cloud** on a delay, **The Knock** ("you okay in there?" from someone who likes you), **Empty Roll** at its most humiliating.
+- **Build cost:** 🟡 — no new hazard, but The Getaway has to grow from one choice into a scored phase, which touches the level flow rather than just tuning.
+- **Why it earns a slot:** it's the only entry that changes the *shape of a run* instead of the shape of the push. It also cashes in Cleanliness, our least-exercised meter, as a headline rather than a footnote.
+- **Supersedes:** the **first date's apartment (thin walls)** one-liner in spec §9 — same house, sharper rule. Keep the date version as the harder sibling: identical structure, tighter thresholds, plus someone whose opinion you actually care about.
+- **Open:** the 60–90s budget and the 80/20 split (§3). A scored Getaway spends seconds The Sit currently owns — either this level runs a shorter Sit, or it's the one level allowed to break the ratio, and that's a deliberate call not an accident.
+
 ---
 
 ## Recommended prototype order
@@ -184,4 +205,5 @@ Everything else is 🟢 reskins/variants we can slot in once the core hazard set
 - [ ] **Zero-G control** — does two-directional drive stay one-thumb-friendly, or does it break the one-hand pillar?
 - [ ] **The bell vs. the cover window** — does a run-long visible countdown play differently from a seconds-ahead telegraphed window, or is High School just the Church with a clock on the wall?
 - [ ] **The noise ratchet and the complexity budget** — is a one-way Discretion floor legible without a readout of its own, and would that readout be a fifth meter in all but name?
+- [ ] **Does a scored Getaway fit the time budget** — or is the Guest Bathroom the one level that knowingly breaks the 80/20 Sit-to-bookend ratio?
 - [ ] **Which of these are launch+1 vs. far backlog** — this doc is a menu, not a commitment; pick the slate once the vertical slice proves the core.
