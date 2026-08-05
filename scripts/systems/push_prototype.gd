@@ -58,11 +58,10 @@ const WATER := Palette.WATER
 ## is HUD apron: the prompt band and the footer readouts.
 const FLOOR_Y := 0.735
 
-## How many layers the bowl fills in. One deposit per 100/DEPOSITS percent of
-## Relief, so this is the resolution of the record the bowl keeps of your run.
-## Kept deliberately low: finer layers are a truer record but they render as thin
-## stacked planks, and the chunkier the layer the more it reads as a lump.
-const DEPOSITS: int = 30
+## How many render samples the bowl's heightfield is drawn at, per simulated
+## column. The sim settles 24 columns; drawing them raw reads as 24 visible
+## steps, so the silhouette is resampled finer and roughened on top.
+const PILE_SUBDIV: int = 3
 
 # --- Sim (the model + systems; the view only reads state) ---
 var _level: LevelDef
@@ -97,12 +96,6 @@ var _splash_flash: float = 0.0
 var _last_splash_pulse: int = 0
 var _milestone_flash: float = 0.0
 var _next_milestone: int = 25
-## What came out, one entry per 100/DEPOSITS of Relief, each holding the needle
-## height at the moment that layer was produced. Pure view state — the sim knows
-## nothing about it — but it is still deterministic, because Relief is, so a
-## replay of the same seed rebuilds the identical pile.
-var _deposits: PackedFloat32Array = PackedFloat32Array()
-var _next_deposit: int = 1
 var _shake: Vector2 = Vector2.ZERO
 var _last_hazard_pulse: int = 0
 var _knock_flash: float = 0.0
@@ -244,13 +237,9 @@ func _process(delta: float) -> void:
 		_milestone_flash = 0.5
 		_next_milestone += 25
 
-	# Lay down what came out. Sampled HERE, not in _draw(): the needle has to be
-	# read at the moment the layer is produced, and _draw() must stay a pure
-	# function of state.
-	while _deposits.size() < DEPOSITS \
-			and _state.relief >= float(_next_deposit) * (100.0 / float(DEPOSITS)):
-		_deposits.append(clampf(_state.needle, 0.0, 1.0))
-		_next_deposit += 1
+	# The pile used to be sampled here, one layer per 3.3% of Relief. It is now
+	# simulated — PushSim deposits and settles a heightfield every fixed step —
+	# so there is nothing for the view to record. _draw() reads state.bowl.
 
 	_splash_flash = maxf(0.0, _splash_flash - delta)
 	_milestone_flash = maxf(0.0, _milestone_flash - delta)
@@ -338,8 +327,6 @@ func _reset() -> void:
 	_last_splash_pulse = 0
 	_milestone_flash = 0.0
 	_next_milestone = 25
-	_deposits = PackedFloat32Array()
-	_next_deposit = 1
 	_shake = Vector2.ZERO
 	_last_hazard_pulse = 0
 	_knock_flash = 0.0
@@ -349,6 +336,9 @@ func _initial_state(level: LevelDef) -> SimState:
 	var s := SimState.new()
 	s.flow_bands = level.flow_bands.duplicate()
 	s.flow_target_bands = level.flow_bands.duplicate()
+	# Start at the level's own consistency, not the neutral default — otherwise
+	# every sit opens the same and eases into its character a second later.
+	s.thickness = level.thickness_base
 	s.composure = 100.0
 	s.composure_start = 100.0
 	s.discretion = 100.0
@@ -602,7 +592,8 @@ func _draw_bowl(w: float, h: float) -> void:
 	_rrect(water, WATER.lerp(MATTER_DARK, 0.75 * foul), int(h * 0.018))
 
 	_draw_streaks(cav)
-	_draw_deposits(cav)
+	_draw_pile(cav)
+	_draw_stream(h, cav)
 
 	# Splatter. The red zone costs Cleanliness, which the streaks above record
 	# permanently; this is the moment it happens, thrown up onto the rim.
@@ -640,57 +631,155 @@ func _draw_streaks(cav: Rect2) -> void:
 				MATTER_DARK.lerp(MATTER, 0.45))
 
 
-## One lump per recorded deposit, stacked from the bottom of the cavity up.
+## Read the sim's heightfield at a fractional position across the bowl (0..1),
+## in rim-fractions. The pile is no longer the view's invention — this is a
+## straight lookup into state.bowl.
+func _sample_bowl(u: float) -> float:
+	var cols := _state.bowl.size()
+	if cols == 0:
+		return 0.0
+	var p := clampf(u, 0.0, 1.0) * float(cols - 1)
+	var i := clampi(int(floor(p)), 0, cols - 1)
+	var a: float = _state.bowl[i]
+	if i + 1 >= cols:
+		return a
+	return lerpf(a, _state.bowl[i + 1], p - float(i))
+
+
+## The pile, drawn straight off the settled heightfield.
 ##
-## Every value here is a pure function of (index, match_seed) or of the width
-## sampled when the layer was laid down — NOTHING calls randf(). Two reasons:
-## _draw() re-runs every frame, so live randomness would make the pile crawl and
-## shimmer instead of sitting there; and a seeded replay or a ghost has to draw
-## the identical pile, which live randomness would break.
-func _draw_deposits(cav: Rect2) -> void:
-	if _deposits.is_empty():
+## This replaced a stack of fixed-cost layers, and the difference is the whole
+## point of the change: the silhouette is now the *shape the matter settled into*.
+## Runny slumps to a flat pool because the sim's angle of repose is near zero at
+## low thickness; solid holds a steep mound under wherever you were aiming.
+##
+## Surface roughness is a pure function of (sample index, match_seed) — NOTHING
+## here calls randf(). _draw() re-runs every frame, so live noise would make the
+## pile crawl and shimmer instead of sitting there, and a seeded replay has to
+## redraw the identical pile.
+func _draw_pile(cav: Rect2) -> void:
+	var cols := _state.bowl.size()
+	if cols == 0:
 		return
-	var layer := cav.size.y / float(DEPOSITS)
+	# Sub-pixel traces are skipped, not clamped: a crest flattened onto the floor
+	# line makes a zero-area polygon and draw_colored_polygon fails to triangulate.
+	if _state.bowl_peak() * cav.size.y < 1.5:
+		return
+	var samples := cols * PILE_SUBDIV
 	var flash := _milestone_flash > 0.0
-	for i in _deposits.size():
-		var force: float = _deposits[i]
-		var ly: float = cav.end.y - float(i + 1) * layer
-		# Two or three overlapping lobes per layer, not one capsule. A single
-		# rounded rect per layer stacks into something that reads as planks; the
-		# irregular silhouette is what makes it read as matter.
-		var lobes := 2 + int(_lump(i, 3) * 1.99)
-		for k in lobes:
-			var n1 := _lump(i, 11 + k * 7)
-			var n2 := _lump(i, 29 + k * 13)
-			var n3 := _lump(i, 47 + k * 5)
-			# Width is the needle at that instant, roughened per lobe so no two
-			# runs and no two layers look alike.
-			var half: float = cav.size.x * (0.10 + 0.21 * force) * (0.60 + 0.55 * n1)
-			half = minf(half, cav.size.x * 0.45)
-			var rad: float = layer * (0.85 + 0.75 * n3)
-			var lx: float = cav.position.x + cav.size.x * 0.5 \
-					+ (n2 - 0.5) * cav.size.x * (0.10 + 0.24 * force)
-			var tone := MATTER.lerp(MATTER_DARK, n1 * 0.42)
-			if flash:
-				tone = tone.lerp(NEEDLE, 0.30 * (_milestone_flash / 0.5))
-			var a := Vector2(lx - half, ly)
-			var b := Vector2(lx + half, ly)
-			# _limb, not _rrect: it round-caps a bar with three primitive draws
-			# and no StyleBoxFlat, which matters at ~90 lobes a frame.
-			_limb(a + Vector2(0.0, rad * 0.55), b + Vector2(0.0, rad * 0.55), rad, MATTER_DARK)
-			_limb(a, b, rad, tone)
-			# Wet sheen. The single thing that separates "fresh" from "a brown
-			# shape", and the reason the product gets a third tone — a recorded
-			# exception to §5, see the style guide.
-			#
-			# On roughly half the lobes only, and small. A highlight on every
-			# lobe at a consistent size stripes the whole pile and it starts to
-			# read as flaky pastry rather than something wet.
-			if n2 > 0.46:
-				var sheen_x := lx - half * (0.34 - 0.42 * n1)
-				_limb(Vector2(sheen_x - half * 0.20, ly - rad * 0.46),
-						Vector2(sheen_x + half * 0.16, ly - rad * 0.46),
-						maxf(1.0, rad * 0.13), Palette.MATTER_LIT)
+
+	# The crest, left to right. Roughness scales with thickness (a pool is
+	# smooth, a solid mass is lumpy) and fades out where the pile is thin, so
+	# the first traces don't erupt into spikes over an empty bowl.
+	var xs := PackedFloat32Array()
+	var ys := PackedFloat32Array()
+	for s in samples + 1:
+		var u := float(s) / float(samples)
+		var hgt := _sample_bowl(u)
+		var rough := (_lump(s, 401) - 0.5) * 0.10 * _state.thickness * minf(1.0, hgt * 5.0)
+		xs.append(cav.position.x + cav.size.x * u)
+		ys.append(minf(cav.end.y - cav.size.y * clampf(hgt + rough, 0.0, 1.10), cav.end.y))
+
+	var body := MATTER_DARK
+	var crust := MATTER
+	if flash:
+		var k := 0.30 * (_milestone_flash / 0.5)
+		body = body.lerp(NEEDLE, k)
+		crust = crust.lerp(NEEDLE, k)
+
+	# One trapezoid per interval, each trivially convex.
+	#
+	# NOT one polygon spanning the bowl, which is the obvious way to do this and is
+	# wrong: wherever the pile runs out the crest sits exactly on the floor line, so
+	# the outline doubles back along its own base edge and Godot's triangulator
+	# discards most of the shape. That rendered as a spike and a smear with no
+	# relation to the heightfield behind it.
+	var lift := maxf(1.5, cav.size.y * 0.055)
+	var quad := PackedVector2Array([Vector2.ZERO, Vector2.ZERO, Vector2.ZERO, Vector2.ZERO])
+	for s in samples:
+		var y0: float = ys[s]
+		var y1: float = ys[s + 1]
+		if minf(y0, y1) >= cav.end.y - 0.75:
+			continue   # nothing here — an empty strip, not a flat one
+		var x0: float = xs[s]
+		var x1: float = xs[s + 1]
+		# Two tones, flat, no gradient (§5), varied per strip so the mass has some
+		# grain instead of reading as one poured slab. Keep the variation SMALL —
+		# at a wider spread each strip resolves as its own vertical band and a
+		# shallow pool starts to read as decking.
+		quad[0] = Vector2(x0, y0)
+		quad[1] = Vector2(x1, y1)
+		quad[2] = Vector2(x1, cav.end.y)
+		quad[3] = Vector2(x0, cav.end.y)
+		draw_colored_polygon(quad, body.lerp(crust, 0.10 + 0.09 * _lump(s, 419)))
+		# The lit crust riding the surface.
+		quad[2] = Vector2(x1, minf(y1 + lift, cav.end.y))
+		quad[3] = Vector2(x0, minf(y0 + lift, cav.end.y))
+		draw_colored_polygon(quad, crust)
+
+	# Wet sheen. The one thing that separates "fresh" from "a brown shape", and
+	# the reason the product gets a third tone — a recorded exception to §5, see
+	# the style guide. Scattered along the crest, never on every sample: an even
+	# stripe of highlight reads as flaky pastry rather than something wet.
+	for s in samples + 1:
+		if _lump(s, 409) <= 0.62:
+			continue
+		if ys[s] >= cav.end.y - cav.size.y * 0.04:
+			continue
+		var p := Vector2(xs[s], ys[s] + lift * 0.45)
+		var run := cav.size.x / float(samples) * (0.7 + 0.9 * _lump(s, 411))
+		_limb(p - Vector2(run, 0.0), p + Vector2(run * 0.6, 0.0),
+				maxf(1.0, lift * 0.22), Palette.MATTER_LIT)
+
+
+## What's actually coming out, falling to where the sim is depositing it.
+##
+## Thin, quick and near-straight when it's runny; a fat, slow, wavering rope when
+## it's solid. Width tracks the live fill rate, so the stream is a direct readout
+## of how fast you're filling — push harder and you can see it thicken.
+func _draw_stream(h: float, cav: Rect2) -> void:
+	if _state.phase != SimState.Phase.PLAYING:
+		return
+	# Nothing is moving during a Knock freeze or the stall after a splash.
+	if Hazards.relief_stalled(_state) or _state.splash_stall > 0.0:
+		return
+	var rate := PushSim.flow_rate(_state, _level) * PushSim.density_of(_state.thickness, _level)
+	var vol := clampf(rate / maxf(0.1, _level.fill_red), 0.0, 1.3)
+	if vol <= 0.03:
+		return
+
+	var thick := _state.thickness
+	# Asked of the sim, not recomputed here — the stream has to land on the column
+	# it is actually feeding.
+	var u := PushSim.drop_u(_state, _level)
+	var x := cav.position.x + cav.size.x * u
+	var top := cav.position.y - h * 0.012          # emerges from behind the rim
+	var land := cav.end.y - cav.size.y * clampf(_sample_bowl(u), 0.0, 1.08)
+	if land <= top:
+		return
+
+	# Solid wavers on the way down; runny falls straight and fast.
+	var wave := cav.size.x * 0.020 * thick
+	var speed := lerpf(11.0, 4.0, thick)
+	var wid := cav.size.x * (0.012 + 0.038 * vol) * (0.65 + 0.8 * thick)
+	var segs := 6
+	var prev := Vector2(x, top)
+	for s in range(1, segs + 1):
+		var f := float(s) / float(segs)
+		var pt := Vector2(x + sin(_t * speed + f * 5.5) * wave * f, lerpf(top, land, f))
+		# Tapers slightly toward the landing — it's stretching as it falls.
+		_limb(prev, pt, wid * (1.0 - 0.18 * f), MATTER)
+		prev = pt
+	_limb(Vector2(x, top), Vector2(x, top + (land - top) * 0.55), wid * 0.30,
+			Palette.MATTER_LIT)
+
+	# Where it lands. Runny spreads on impact; solid just plops.
+	var splat := wid * (1.6 - 0.7 * thick)
+	draw_circle(prev, splat, MATTER)
+	if thick < 0.5:
+		var spread := splat * (1.0 + 1.4 * (0.5 - thick))
+		_limb(prev - Vector2(spread, 0.0), prev + Vector2(spread, 0.0),
+				maxf(1.0, wid * 0.35), MATTER)
 
 
 ## Deterministic 0..1 noise from a layer index and a salt, mixed with the match
@@ -1007,8 +1096,28 @@ func _draw_relief_readout(font: Font, w: float, h: float) -> void:
 	if _state.phase != SimState.Phase.PLAYING:
 		return
 	var cav := _bowl_cavity(w, h)
-	_text(font, "RELIEF  %d%%" % int(_state.relief),
-			cav.position.x, int(h * 0.727), cav.size.x, int(h * 0.024), TEXT)
+	# Consistency rides alongside the percentage. It changes the fill rate, so it
+	# can't be a thing you only infer from the shape of the pile — but it's a feel,
+	# not a number, so it gets a word rather than a second percentage.
+	# Wider than the cavity, and shifted back by half the excess so it stays
+	# centred on the bowl — the cavity's own width clips the longer words.
+	var pad := w * 0.14
+	_text(font, "RELIEF  %d%%   ·   %s" % [int(_state.relief), _consistency_word()],
+			cav.position.x - pad * 0.5, int(h * 0.727), cav.size.x + pad,
+			int(h * 0.024), TEXT)
+
+
+func _consistency_word() -> String:
+	var t := _state.thickness
+	if t < 0.20:
+		return "RUNNY"
+	if t < 0.42:
+		return "LOOSE"
+	if t < 0.60:
+		return "STEADY"
+	if t < 0.80:
+		return "FIRM"
+	return "SOLID"
 
 
 func _draw_prompt(font: Font, w: float, h: float) -> void:
