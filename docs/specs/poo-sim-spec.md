@@ -99,6 +99,19 @@ The single primary control. Everything else is a modifier on top of it.
 
 The Flow Zone can shift, narrow, or split during a level (e.g., a "false alarm" fake-out, or a stubborn stretch that demands a hard push). That's the skill ceiling.
 
+**Fill rate is continuous in the needle, not a flat rate per zone.** The three tuning anchors (dead / flow / red) are points on a curve, so where you sit *inside* the Flow Zone matters — riding its ceiling is about a third faster than scraping its floor, and closer to the red edge. Zones govern quality (strain, noise, Composure), not rate.
+
+### Consistency
+
+Relief is **mass evacuated**: `rate = flow(needle) × density(thickness)`.
+
+- **Thickness** runs 0 (runny) → 1 (solid). The level seeds a baseline — what you ate, and a per-environment character knob — and bearing down extrudes thicker matter. It **eases** toward that target rather than snapping, so a flick into the red buys the steeper rate curve but not the density bonus. You only get thick by committing.
+- **Thicker fills faster.** Density is centred on neutral, so a level that leaves the baseline alone keeps its existing pacing exactly.
+- **Thickness also decides how it lands.** The bowl's contents are a 24-column heightfield the sim settles every tick against an angle of repose: runny self-levels into a flat pool, solid holds a mound. It is a sandpile automaton, **not** engine physics — a `RigidBody` pile is node-owned and not bit-reproducible, so putting one in the Relief path would cost ghost replay and mirrored 1v1 boards (§17). The settle only ever *moves* matter, so a loose pile can never win the run early.
+- **Where the stream lands wavers around the middle of the bowl.** Force buys amplitude, not direction — pushing harder makes you a worse nozzle, it doesn't aim you sideways. Turbulence (an active Jolt, or a level with a high ambient waver) throws it much wider. This is the airplane's hook: crank the waver and the whole level is fighting a moving target, with no new system behind it.
+
+> **Not yet built:** thickness currently has no counterweight — thicker is simply faster. Candidates once it's playtested: thick resists (slower needle, steeper Composure drain) and thin splashes (Cleanliness); or a pile that mounds past the rim and overflows. `SimState.bowl_peak()` already exposes what an overflow rule would read.
+
 > **See the [UI Spec](poo-sim-ui-spec.md)** for the full seated-screen layout, and the interactive mockup **`poo-sim-seated-screen.html`** to see the gauge, meters, and hazard states in action.
 
 ---

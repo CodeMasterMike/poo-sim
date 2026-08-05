@@ -66,20 +66,20 @@ The slump curves rather than translates on purpose: dropping every joint by the 
 
 On the fail screen he is **re-drawn on top of the scrim**. Behind an `a = 0.80` wash of black the slump is invisible, and the beat is worth more than the dimming. The "tap · press R to retry" line moved from `h * 0.55` to `h * 0.76` to clear his head — at 0.55 it ran straight through it.
 
-### The bowl is the Relief meter (`_draw_bowl()` / `_draw_deposits()`)
+### The bowl is the Relief meter (`_draw_bowl()` / `_draw_pile()`)
 
 The abstract green Relief tube is gone. The bowl replaced it, and the layout moved to make room: **THE PUSH** went hard against the left edge (it's only ever read for the needle's *height*, so it gives up width cheaply) and the man and bowl took the rest.
 
-What's in the bowl is what you produced. One layer per `100/DEPOSITS` of Relief, each layer as wide as the needle was **at the moment it came out** — so a clean run builds an even column and a run spent bouncing off the red zone builds a lumpy mess. The bowl is the meter and the record of the run at the same time.
+What's in the bowl is what you produced. **The pile is simulated, not drawn from a record:** `SimState.bowl` is a 24-column heightfield that `PushSim` deposits into and settles every fixed step, and `_draw_pile()` is a straight readout of it. See the consistency model below.
 
-**Nothing here calls `randf()`, and that's load-bearing.** Every value is a pure function of `(layer index, match_seed)` or of the width sampled when the layer was laid down. Two independent reasons:
+> **Superseded (kept for context).** The first version was view-owned: `_deposits` recorded the needle height once per `100/DEPOSITS` of Relief and drew one lumpy layer per entry. It looked right but described something the sim wasn't doing — every layer cost exactly 3.33% of Relief regardless of how wide it drew, so a fat layer and a thin one took the same time. Fill rate was a three-step function of *zone* only, which meant needle position inside the Flow band was worth nothing.
+
+**Nothing here calls `randf()`, and that's load-bearing.** Surface roughness is a pure function of `(sample index, match_seed)`; everything else comes from the heightfield. Two independent reasons:
 
 - `_draw()` re-runs every frame. Live randomness would make the whole pile crawl and shimmer instead of sitting there.
 - A seeded replay — and the ghost/1v1 architecture the sim is built to allow — has to redraw the identical pile. Live randomness breaks that.
 
-The sampling happens in `_process()`, not `_draw()`, because the needle has to be read at the instant the layer is produced and `_draw()` must stay a pure function of state. `_deposits` is view state, but it's still deterministic, because Relief is.
-
-`DEPOSITS` is deliberately low (30). Finer layers are a truer record but render as thin stacked planks; the chunkier the layer, the more it reads as a lump.
+**Draw the pile as one convex trapezoid per sample interval, never as a single polygon spanning the bowl.** The spanning polygon is the obvious implementation and it fails: wherever the pile runs out, the crest sits exactly on the floor line, the outline doubles back along its own base edge, and Godot's triangulator discards most of the shape (`Invalid polygon data, triangulation failed`). It renders as a spike and a smear bearing no relation to the heightfield. Sub-pixel piles are skipped outright for the same reason.
 
 Four colours were added to `Palette` — `MATTER`, `MATTER_DARK`, `MATTER_LIT`, `WATER` — rather than inlined as `Color()` literals, per the palette's own no-drift rule. They're documented in the style guide under a new *Representational* heading: they depict a thing rather than signal a state, and sit outside the §3 colour grammar entirely.
 
@@ -89,14 +89,14 @@ The product is the **one sanctioned carve-out** from §6's "sell the gross-out w
 
 What makes it read as matter rather than as a stack of planks:
 
-- **Two or three overlapping lobes per layer**, not one capsule. The irregular silhouette does most of the work.
-- **Sheen on roughly half the lobes only, and small.** A highlight on every lobe at a consistent size stripes the pile and it starts to read as flaky pastry — that was the first attempt.
-- **Tone varies per lobe** between `MATTER` and `MATTER_DARK`.
+- **The silhouette comes from the settle**, and does most of the work: runny slumps to a flat pool because its angle of repose is near zero, solid holds a mound. Surface roughness is then scaled *by thickness*, so a pool stays smooth and a firm mass gets lumpy.
+- **Sheen on roughly half the crest samples only, and small.** A highlight everywhere at a consistent size stripes the pile and it starts to read as flaky pastry — that was the first attempt.
+- **Tone varies per strip** between `MATTER` and `MATTER_DARK`, but only slightly. Wide variation resolves each strip as its own vertical band and a shallow pool reads as decking — that was the second attempt.
+- **A lit crust rides the surface**, so the mass has a top rather than being one flat fill.
 - **The water goes off as the bowl fills**, lerping toward `MATTER_DARK` with Relief.
 - **Skid marks down the porcelain, driven by Cleanliness.** No new state: Cleanliness already tracks how much you splashed, so the bowl simply wears it. The mess *is* the score, drawn.
 - **Splatter on the rim during a splash**, the transient moment whose permanent record is those streaks.
-
-Lobes are drawn with `_limb()`, not `_rrect()` — it round-caps a bar in three primitive draws with no `StyleBoxFlat` allocation, which matters at ~90 lobes a frame. Measured at 59 FPS / 763 draw calls with a full bowl.
+- **The stream** falling to wherever the sim is depositing: thin, fast and near-straight when runny (with a spread splat on landing), a slow fat wavering rope when solid. Its width tracks the live fill rate, so it doubles as a readout of how fast you're filling. It asks `PushSim.drop_u()` rather than recomputing the landing point, so what you see falling always feeds the column it appears to.
 
 The carve-out buys no licence toward photorealism: the shapes stay flat-filled, thickly outlined cartoon lobes. Everything around them stays in register — a flat, earnest instrument panel reporting on something horrible is the §1 joke, and it only works if the panel keeps a straight face.
 
