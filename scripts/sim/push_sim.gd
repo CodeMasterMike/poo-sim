@@ -236,7 +236,10 @@ static func band_centre(state: SimState) -> float:
 ## Where the stream is landing, as a fraction across the bowl. Static and shared
 ## with the view, so the stream you see falling and the column it actually feeds
 ## cannot drift apart.
-static func drop_u(state: SimState, level: LevelDef) -> float:
+## (`_level` is unused today. It stays in the signature because where the stream
+## lands is a level's business — an off-centre pan is on the environment backlog —
+## and every caller already has one to hand.)
+static func drop_u(state: SimState, _level: LevelDef) -> float:
 	return clampf(0.5 + state.sway, 0.0, 1.0)
 
 

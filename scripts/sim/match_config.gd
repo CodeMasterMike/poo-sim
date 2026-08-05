@@ -11,9 +11,9 @@ var match_seed: int = 0
 var level: LevelDef = null
 
 
-static func single_player(level: LevelDef, seed_value: int) -> MatchConfig:
+static func single_player(level_def: LevelDef, seed_value: int) -> MatchConfig:
 	var m := MatchConfig.new()
 	m.players = 1
 	m.match_seed = seed_value
-	m.level = level
+	m.level = level_def
 	return m

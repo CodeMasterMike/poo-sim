@@ -1025,7 +1025,7 @@ func _current_level_index() -> int:
 ## Switch venue and restart, keeping the picker button/highlight in sync. The one
 ## path used by both the 1/2/3 keys and a picker tap.
 func _switch_level(kind: int) -> void:
-	level_kind = kind
+	level_kind = kind as LevelKind
 	_reset()
 	if _picker != null:
 		_picker.set_current(_current_level_index())
