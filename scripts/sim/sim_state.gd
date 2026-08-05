@@ -8,6 +8,10 @@ extends RefCounted
 enum Phase { PLAYING, WON, LOST }
 
 ## Identifies a meter for timeline/hazard events that nudge a value directly.
+##
+## RELIEF is RESERVED, not usable — see apply_meter. Its ordinal stays put anyway,
+## for the same reason SimEvent.Kind never reslots: a serialized level or ghost
+## holding a `2` has to keep meaning DISCRETION.
 enum Meter { RELIEF, COMPOSURE, DISCRETION, CLEANLINESS }
 
 ## How many columns the bowl's contents are modelled as. A heightfield, not a
@@ -142,10 +146,22 @@ func bowl_peak() -> float:
 
 
 ## Apply a signed delta to a meter (timeline/hazard events use this). Clamped.
+##
+## RELIEF is refused. It stopped being a meter the moment Relief became mass
+## evacuated into `bowl`: the number here is only the tally, the pile is the truth,
+## and the run finishes on `progress` (the pile's HEIGHT) rather than on this. So a
+## bare `relief +=` writes a figure the bowl does not back — and since the win still
+## also trips at `relief >= 100`, a scripted `+100` ended the sit on the spot over a
+## visibly empty bowl. A negative delta is worse: nothing takes matter back OUT of
+## the heightfield, so it breaks the mass invariant the settle rests on.
+##
+## Granting progress is a real thing a level might want; it just has to arrive as
+## matter, through PushSim's deposit path, not as a number poked in from outside.
 func apply_meter(meter_id: int, delta: float) -> void:
 	match meter_id:
 		Meter.RELIEF:
-			relief = clampf(relief + delta, 0.0, 100.0)
+			push_error("SimState.apply_meter: RELIEF is not directly settable — "
+					+ "Relief is mass in `bowl`, so it must be deposited, not assigned.")
 		Meter.COMPOSURE:
 			composure = clampf(composure + delta, 0.0, 100.0)
 		Meter.DISCRETION:
