@@ -748,21 +748,36 @@ func _draw_pile(cav: Rect2) -> void:
 				maxf(1.0, lift * 0.22), Palette.MATTER_LIT)
 
 
+## Is anything actually coming out right now?
+##
+## Shared by the falling stream and the consistency readout, so the label can never
+## name a consistency the bowl isn't showing. Covers all three ways output stops:
+## the needle resting below the push gate, a Knock freeze, and the stall after a
+## splash.
+func _is_flowing() -> bool:
+	if _state.phase != SimState.Phase.PLAYING:
+		return false
+	if Hazards.relief_stalled(_state) or _state.splash_stall > 0.0:
+		return false
+	return _flow_volume() > 0.03
+
+
+## Current output as a fraction of this level's hardest possible flow — the
+## stream's width, and the test above.
+func _flow_volume() -> float:
+	var rate := PushSim.flow_rate(_state, _level) * PushSim.density_of(_state.thickness, _level)
+	return clampf(rate / maxf(0.1, _level.fill_red), 0.0, 1.3)
+
+
 ## What's actually coming out, falling to where the sim is depositing it.
 ##
 ## Thin, quick and near-straight when it's runny; a fat, slow, wavering rope when
 ## it's solid. Width tracks the live fill rate, so the stream is a direct readout
 ## of how fast you're filling — push harder and you can see it thicken.
 func _draw_stream(h: float, cav: Rect2) -> void:
-	if _state.phase != SimState.Phase.PLAYING:
+	if not _is_flowing():
 		return
-	# Nothing is moving during a Knock freeze or the stall after a splash.
-	if Hazards.relief_stalled(_state) or _state.splash_stall > 0.0:
-		return
-	var rate := PushSim.flow_rate(_state, _level) * PushSim.density_of(_state.thickness, _level)
-	var vol := clampf(rate / maxf(0.1, _level.fill_red), 0.0, 1.3)
-	if vol <= 0.03:
-		return
+	var vol := _flow_volume()
 
 	var thick := _state.thickness
 	# Asked of the sim, not recomputed here — the stream has to land on the column
@@ -1118,13 +1133,33 @@ func _draw_relief_readout(font: Font, w: float, h: float) -> void:
 	# Wider than the cavity, and shifted back by half the excess so it stays
 	# centred on the bowl — the cavity's own width clips the longer words.
 	var pad := w * 0.14
-	_text(font, "RELIEF  %d%%   ·   %s" % [int(_state.relief), _consistency_word()],
-			cav.position.x - pad * 0.5, int(h * 0.727), cav.size.x + pad,
+	var line := "RELIEF  %d%%" % int(_state.relief)
+	var word := _readout_consistency()
+	if not word.is_empty():
+		line += "   ·   " + word
+	_text(font, line, cav.position.x - pad * 0.5, int(h * 0.727), cav.size.x + pad,
 			int(h * 0.024), TEXT)
 
 
-func _consistency_word() -> String:
-	var t := _state.thickness
+## Which consistency the readout names.
+##
+## While something is coming out, it describes THAT. When nothing is — needle on
+## the floor, a Knock freeze, a splash stall — naming the exit is describing output
+## that isn't happening, and it reads as a contradiction next to a bowl full of
+## firm matter. So it falls back to what's in the bowl, the only consistency that
+## still means anything at rest.
+##
+## Empty and not flowing (the opening seconds) names nothing at all: `bowl_thickness`
+## is undefined until the first deposit, so any word there would be invented.
+func _readout_consistency() -> String:
+	if _is_flowing():
+		return _consistency_word(_state.thickness)
+	if _state.bowl_mass() > 0.0:
+		return _consistency_word(_state.bowl_thickness)
+	return ""
+
+
+func _consistency_word(t: float) -> String:
 	if t < 0.20:
 		return "RUNNY"
 	if t < 0.42:
