@@ -30,9 +30,9 @@ static func timeline() -> Array[SimEvent]:
 	t.append(SimEvent.knock(6.0, 1.5, 2.0, 40.0, 0.35).with_jitter(1.5))
 
 	# MIDDLE — escalation paced by progress, not the clock.
-	# At ~30% Relief the zone narrows and drifts up: a stubborn stretch that
+	# At ~30% of the way to the line the zone narrows and drifts up: a stubborn stretch that
 	# demands a firmer push, flirting with the red zone's noise and splash risk.
-	t.append(SimEvent.flow_zone(0.0, [Vector2(0.58, 0.72)], 1.5).on_relief(30.0))
+	t.append(SimEvent.flow_zone(0.0, [Vector2(0.58, 0.72)], 1.5).on_progress(30.0))
 
 	# ~14s: turbulence. Environmental, so it stays on the clock rather than
 	# tracking progress. Deliberately placed between the two knocks — a jolt
@@ -41,9 +41,9 @@ static func timeline() -> Array[SimEvent]:
 	# for a later world's difficulty).
 	t.append(SimEvent.jolt(14.0, 0.6, 1.5, 1.2).with_jitter(2.5))
 
-	# ~40% Relief: the phone goes off mid-escalation. Bleeds Composure the whole
+	# ~40% of the way there: the phone goes off mid-escalation. Bleeds Composure the whole
 	# time it buzzes, so ignoring it costs even before it rings out.
-	t.append(SimEvent.buzz(0.0, 1.0, 2.0, 15.0, 3.0).on_relief(40.0).with_jitter(6.0))
+	t.append(SimEvent.buzz(0.0, 1.0, 2.0, 15.0, 3.0).on_progress(40.0).with_jitter(6.0))
 
 	# NOTE: the Smell Cloud used to be faked here as a prompt plus a flat -22
 	# Discretion hit on the clock. It's now a real emergent hazard emitted by
@@ -54,14 +54,14 @@ static func timeline() -> Array[SimEvent]:
 	# the halfway mark — proof that multiple knocks per sit work, and that a
 	# hazard can be scheduled off progress.
 	# Tighter: shorter telegraph, steeper cost, and only 0.15s of grace.
-	t.append(SimEvent.knock(0.0, 1.0, 2.0, 45.0, 0.15).on_relief(55.0).with_jitter(8.0))
+	t.append(SimEvent.knock(0.0, 1.0, 2.0, 45.0, 0.15).on_progress(55.0).with_jitter(8.0))
 
 	# A breather: the zone widens and settles back down.
-	t.append(SimEvent.flow_zone(0.0, [Vector2(0.48, 0.70)], 2.0).on_relief(68.0))
+	t.append(SimEvent.flow_zone(0.0, [Vector2(0.48, 0.70)], 2.0).on_progress(68.0))
 
-	# THE FINAL PUSH — at ~85% Relief the zone narrows hard for the last stretch,
+	# THE FINAL PUSH — at ~85% of the way there the zone narrows hard for the last stretch,
 	# the deliberate "so close" spike.
-	t.append(SimEvent.prompt(0.0, "THE FINAL PUSH", 2.5).on_relief(85.0))
-	t.append(SimEvent.flow_zone(0.0, [Vector2(0.62, 0.74)], 1.0).on_relief(85.0))
+	t.append(SimEvent.prompt(0.0, "THE FINAL PUSH", 2.5).on_progress(85.0))
+	t.append(SimEvent.flow_zone(0.0, [Vector2(0.62, 0.74)], 1.0).on_progress(85.0))
 
 	return t

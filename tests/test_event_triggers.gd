@@ -50,7 +50,7 @@ func test_relief_trigger_fires_on_progress_not_time() -> void:
 	var level := LevelDef.new()
 	level.smell_rate = 0.0      # only the event may move Discretion
 	level.red_noise_rate = 0.0
-	var tl: Array[SimEvent] = [SimEvent.meter(0.0, SimState.Meter.DISCRETION, -30.0).on_relief(20.0)]
+	var tl: Array[SimEvent] = [SimEvent.meter(0.0, SimState.Meter.DISCRETION, -30.0).on_progress(20.0)]
 	level.timeline = tl
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 1337
@@ -64,20 +64,20 @@ func test_relief_trigger_fires_on_progress_not_time() -> void:
 	var scheduler := EventScheduler.new()
 	scheduler.load_timeline(level.timeline)
 
-	var relief_when_fired := -1.0
+	var progress_when_fired := -1.0
 	for _i in 6000:
 		if state.phase != SimState.Phase.PLAYING:
 			break
 		var intent := PlayerIntent.new()
-		intent.holding = true  # push so Relief climbs
+		intent.holding = true  # push so progress climbs
 		scheduler.tick(clock, state)
 		if state.discretion < 100.0:
-			relief_when_fired = state.relief
+			progress_when_fired = state.progress
 			break
 		sim.tick(state, intent, clock, level, SimClock.FIXED_DT)
 		clock.advance()
 
-	assert_gt(relief_when_fired, 19.9, "event fired before Relief reached the 20% threshold")
-	assert_true(relief_when_fired < 21.0,
-			"event fired late, at %f%% Relief" % relief_when_fired)
+	assert_gt(progress_when_fired, 19.9, "event fired before progress reached the 20% threshold")
+	assert_true(progress_when_fired < 21.0,
+			"event fired late, at %f%% Relief" % progress_when_fired)
 	assert_eq(state.discretion, 70.0, "the -30 event should have applied exactly once")

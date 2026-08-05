@@ -50,7 +50,7 @@ static func _timeline() -> Array[SimEvent]:
 	t.append_array(QuietRoom.run(13.5, 6, 7.5, 1.2, 2.5))
 
 	# THE LAST DROP — a final hush right as the player closes it out (the pinch).
-	t.append(SimEvent.prompt(0.0, "THE LAST DROP — ease off and coast in", 2.0).on_relief(85.0))
-	t.append(QuietRoom.window(0.0, 1.2, 3.0).on_relief(88.0))
+	t.append(SimEvent.prompt(0.0, "THE LAST DROP — ease off and coast in", 2.0).on_progress(85.0))
+	t.append(QuietRoom.window(0.0, 1.2, 3.0).on_progress(88.0))
 
 	return t

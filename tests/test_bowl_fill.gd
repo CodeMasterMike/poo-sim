@@ -303,6 +303,64 @@ func test_a_uniform_run_matches_what_was_deposited() -> void:
 			"fed 0.8 throughout, the bowl reads %f" % state.bowl_thickness)
 
 
+# ------------------------------------------------------------------- the line
+
+## The run ends when the PILE REACHES THE LINE, not when a mass counter tops out.
+func test_the_run_ends_when_the_pile_reaches_the_line() -> void:
+	var level := _level()
+	var state := _run_pinned(level, _band_mid(level), 120.0)
+
+	assert_eq(state.phase, SimState.Phase.WON, "the sit should have been won")
+	assert_true(state.bowl_peak() >= level.goal_height * 0.99,
+			"won at a peak of %f, short of the %f line" % [state.bowl_peak(), level.goal_height])
+	assert_true(state.relief < 100.0,
+			"should have finished on height, with mass to spare — relief was %f" % state.relief)
+
+
+## The payoff for the whole consistency model: a firm pile stacks and reaches the
+## line on less mass than a runny one that spreads flat.
+func test_a_firm_pile_reaches_the_line_on_less_than_a_runny_one() -> void:
+	var firm := _level(1.0)
+	firm.thickness_push_gain = 0.0
+	var runny := _level(0.0)
+	runny.thickness_push_gain = 0.0
+
+	var a := _run_pinned(firm, _band_mid(firm), 200.0)
+	var b := _run_pinned(runny, _band_mid(runny), 200.0)
+	assert_eq(a.phase, SimState.Phase.WON, "the firm run should have finished")
+	assert_eq(b.phase, SimState.Phase.WON, "the runny run should have finished")
+
+	assert_gt(b.relief, a.relief * 1.2,
+			"runny needed %f mass, firm only %f — the shape should matter" % [b.relief, a.relief])
+
+
+## Raising the line asks for more.
+func test_the_line_height_sets_how_much_is_needed() -> void:
+	var low := _level()
+	low.goal_height = 0.5
+	var high := _level()
+	high.goal_height = 1.0
+
+	var a := _run_pinned(low, _band_mid(low), 200.0)
+	var b := _run_pinned(high, _band_mid(high), 200.0)
+	assert_eq(a.phase, SimState.Phase.WON, "the low line should have been reached")
+	assert_eq(b.phase, SimState.Phase.WON, "the high line should have been reached")
+	assert_gt(b.relief, a.relief, "a higher line should demand more")
+
+
+## Progress never runs backwards, even though the pile settles when you stop.
+func test_progress_is_a_high_water_mark() -> void:
+	var solid := _level(1.0)
+	solid.thickness_push_gain = 0.0
+	var state := _run_pinned(solid, _band_mid(solid), 8.0)
+	var reached := state.progress
+	assert_gt(reached, 0.0, "nothing to test with")
+
+	_idle(state, _level(), 10.0)
+	assert_true(state.progress >= reached,
+			"progress fell from %f to %f while resting" % [reached, state.progress])
+
+
 # ------------------------------------------------------------------------ aim
 
 ## The landing point must stay CENTRED however hard you push. An earlier version

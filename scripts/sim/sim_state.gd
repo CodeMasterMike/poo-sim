@@ -59,8 +59,23 @@ var bowl_thickness: float = 0.5
 var sway: float = 0.0
 var sway_clock: float = 0.0   ## sim-time driving the waver; replays exactly
 
+## How close the bowl is to done, 0..100 — the pile's peak measured against the
+## goal line. THIS is what ends the run, not `relief`.
+##
+## The two differ on purpose. `relief` is mass evacuated; `progress` is how high
+## what came out actually stands. A firm, well-aimed pile stacks and reaches the
+## line on less mass; a runny one spreads flat and needs more. That's the payoff
+## for the whole consistency model — how you played decides how much you need.
+##
+## A high-water mark, so it never runs backwards when the pile settles. Resting
+## already costs Composure; watching the meter fall too reads as being punished
+## twice for one pause.
+var progress: float = 0.0
+
 # --- The four meters (all 0..100; "fuller is better" for every one) ---
-var relief: float = 0.0        ## win condition — fill to 100
+## How much has actually left you. Drives Flow Ratio and the timeline's own
+## accounting; it is NOT the finish line any more — see `progress`.
+var relief: float = 0.0
 var composure: float = 100.0   ## time/urgency; only drains; empty = LOST
 var discretion: float = 100.0  ## noise + smell; high = undetected
 var cleanliness: float = 100.0 ## splashback/mess; high = spotless

@@ -50,7 +50,7 @@ static func _timeline() -> Array[SimEvent]:
 
 	# THE FINAL VERSE — a last, long swell to finish on, keyed to progress so the
 	# closing window lands as the player nears the goal (the "so close" pinch).
-	t.append(SimEvent.prompt(0.0, "THE FINAL VERSE — ride the swell", 2.0).on_relief(85.0))
-	t.append(QuietRoom.window(0.0, 1.2, 6.0).on_relief(87.0))
+	t.append(SimEvent.prompt(0.0, "THE FINAL VERSE — ride the swell", 2.0).on_progress(85.0))
+	t.append(QuietRoom.window(0.0, 1.2, 6.0).on_progress(87.0))
 
 	return t

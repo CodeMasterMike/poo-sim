@@ -88,13 +88,22 @@ func tick(state: SimState, intent: PlayerIntent, clock: SimClock, level: LevelDe
 			if zone == ZONE_FLOW:
 				state.flow_fill += gained
 			_deposit(state, level, gained)
-			if state.relief >= 100.0:
-				state.phase = SimState.Phase.WON
-				return
 
 	# --- The bowl keeps settling even while the fill is frozen: a runny pool is
 	#     still finding its level whether or not you're producing. ---
 	_slump(state, level)
+
+	# --- Done when the PILE REACHES THE LINE. Measured after the settle, so a
+	#     heap that was going to slump doesn't win on a peak it can't hold. ---
+	state.progress = maxf(state.progress,
+			100.0 * state.bowl_peak() / maxf(0.001, level.goal_height))
+	# A full mass counter also ends it. Not reachable in normal play — the pile is
+	# at the rim long before then — but it stops a level whose goal_height sits
+	# above what a bowlful of matter can stack into from being unwinnable.
+	if state.progress >= 100.0 or state.relief >= 100.0:
+		state.progress = 100.0
+		state.phase = SimState.Phase.WON
+		return
 
 	# --- Composure: the Knock bleeds it while frozen; otherwise it drains by zone ---
 	if not frozen:

@@ -6,10 +6,16 @@ extends RefCounted
 ## come from, not how they resolve (spec §17 guardrail 2).
 ##
 ## Two trigger families, both deterministic:
-##   TIME    — fires on an integer step (never a drifting float clock).
-##   RELIEF  — fires once the player's Relief crosses a threshold, so pacing can
-##             follow actual progress (the spec's three-act micro-curve) instead
-##             of a fixed stopwatch.
+##   TIME     — fires on an integer step (never a drifting float clock).
+##   PROGRESS — fires once the player crosses a percentage of the way to the goal
+##              line, so pacing follows actual progress (the spec's three-act
+##              micro-curve) instead of a fixed stopwatch.
+##
+## PROGRESS keys off `state.progress`, NOT `state.relief`. Those parted company
+## when the run started ending on the pile's HEIGHT rather than on a mass counter:
+## a firm pile reaches the line on less mass, so a beat authored "at 85%" has to
+## mean 85% of the way to the finish, or the Final Push would land after the run
+## was already over — or never at all.
 ## Any randomness in *when* these fire was already rolled from the match seed in
 ## LevelDef.resolve_timeline, so the schedule is fixed before the first tick.
 
@@ -27,7 +33,7 @@ func load_timeline(events: Array[SimEvent]) -> void:
 	_timed.clear()
 	_conditional.clear()
 	for ev in events:
-		if ev.trigger == SimEvent.Trigger.RELIEF:
+		if ev.trigger == SimEvent.Trigger.PROGRESS:
 			_conditional.append(ev)
 		else:
 			_timed.append(ev)
@@ -47,7 +53,7 @@ func tick(clock: SimClock, state: SimState) -> void:
 	var i := 0
 	while i < _conditional.size():
 		var ev := _conditional[i]
-		if state.relief >= ev.relief_at:
+		if state.progress >= ev.progress_at:
 			_apply(ev, state, clock)
 			_conditional.remove_at(i)
 		else:

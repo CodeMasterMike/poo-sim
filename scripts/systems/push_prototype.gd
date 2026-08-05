@@ -238,7 +238,7 @@ func _process(delta: float) -> void:
 	if _state.splash_pulse != _last_splash_pulse:
 		_last_splash_pulse = _state.splash_pulse
 		_splash_flash = 0.4
-	while _state.relief >= float(_next_milestone) and _next_milestone < 100:
+	while _state.progress >= float(_next_milestone) and _next_milestone < 100:
 		_milestone_flash = 0.5
 		_next_milestone += 25
 
@@ -618,13 +618,15 @@ func _draw_bowl(w: float, h: float) -> void:
 					- h * 0.030 * spread * _lump(i, 217)
 			draw_circle(Vector2(fx, fy), maxf(1.5, w * 0.008 * _lump(i, 219)), MATTER)
 
-	# The goal: a full bowl is 100%. Marked in gold on the cavity's top edge, the
-	# same language the old tube used.
+	# THE LINE. Not decoration any more and not pinned to the rim: the run ends the
+	# moment the pile touches this, so it is drawn at the level's own goal_height
+	# and the player is watching a real finish line rather than a label.
+	var line_y := cav.end.y - cav.size.y * _level.goal_height
 	var glow := GOAL
 	glow.a = 0.20
-	_rrect(Rect2(cav.position.x - w * 0.012, cav.position.y - h * 0.008,
+	_rrect(Rect2(cav.position.x - w * 0.012, line_y - h * 0.008,
 			cav.size.x + w * 0.024, h * 0.014), glow, 6)
-	_rrect(Rect2(cav.position.x - w * 0.006, cav.position.y - h * 0.004,
+	_rrect(Rect2(cav.position.x - w * 0.006, line_y - h * 0.004,
 			cav.size.x + w * 0.012, h * 0.006), GOAL, 3)
 
 
@@ -1133,7 +1135,11 @@ func _draw_relief_readout(font: Font, w: float, h: float) -> void:
 	# Wider than the cavity, and shifted back by half the excess so it stays
 	# centred on the bowl — the cavity's own width clips the longer words.
 	var pad := w * 0.14
-	var line := "RELIEF  %d%%" % int(_state.relief)
+	# Shows PROGRESS, not the mass counter: the bowl is the Relief meter, and what
+	# the meter has to answer is "how close am I to done", which is now the pile's
+	# height against the goal line. `_state.relief` is still the mass that left you
+	# and still drives Flow Ratio — it just isn't the finish line any more.
+	var line := "RELIEF  %d%%" % int(_state.progress)
 	var word := _readout_consistency()
 	if not word.is_empty():
 		line += "   ·   " + word

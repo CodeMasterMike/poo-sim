@@ -20,12 +20,12 @@ enum Kind { FLOW_ZONE, METER, PROMPT, KNOCK, JOLT, BUZZ, SMELL, COVER }
 ## What makes the event fire. TIME is the clock; RELIEF paces the beat off the
 ## player's actual progress, which is what the spec's three-act micro-curve wants
 ## ("random after ~30% Relief", the Final Push spike near 85%).
-enum Trigger { TIME, RELIEF }
+enum Trigger { TIME, PROGRESS }
 
 var time: float = 0.0
 var step: int = 0
 var trigger: int = Trigger.TIME
-var relief_at: float = 0.0
+var progress_at: float = 0.0
 ## Randomizes the trigger point by +/- this much, rolled ONCE per match from the
 ## match-seeded RNG. Same seed rolls the same schedule (fair mirrored boards,
 ## reproducible ghosts); a different seed reshuffles the sit.
@@ -40,11 +40,11 @@ func _init(t: float, k: Kind, p: RefCounted) -> void:
 	payload = p
 
 
-## Chainable authoring helpers: SimEvent.knock(...).on_relief(30.0).with_jitter(5.0)
+## Chainable authoring helpers: SimEvent.knock(...).on_progress(30.0).with_jitter(5.0)
 
-func on_relief(pct: float) -> SimEvent:
-	trigger = Trigger.RELIEF
-	relief_at = pct
+func on_progress(pct: float) -> SimEvent:
+	trigger = Trigger.PROGRESS
+	progress_at = pct
 	return self
 
 
@@ -61,8 +61,8 @@ func resolve(fixed_dt: float, rng: RandomNumberGenerator) -> void:
 	var roll := 0.0
 	if jitter > 0.0:
 		roll = rng.randf_range(-jitter, jitter)
-	if trigger == Trigger.RELIEF:
-		relief_at = clampf(relief_at + roll, 0.0, 100.0)
+	if trigger == Trigger.PROGRESS:
+		progress_at = clampf(progress_at + roll, 0.0, 100.0)
 		step = 0
 	else:
 		step = int(round(maxf(0.0, time + roll) / fixed_dt))

@@ -68,6 +68,15 @@ extends Resource
 ## At 0.35: runny = 0.65x, neutral = 1.0x, solid = 1.35x.
 @export var density_swing: float = 0.35
 
+## Where the finish line sits, in rim-fractions (1.0 = level with the rim). The
+## run ends when the PILE REACHES IT, not when a mass counter tops out — so a firm
+## pile that stacks gets there on less than a runny one that spreads.
+##
+## Raising this asks for more; lowering it ends the sit sooner. Above 1.0 the line
+## stands proud of the rim, which is reachable but asks for a deliberately heaped
+## bowl.
+@export var goal_height: float = 1.0
+
 # --- Bowl physics (the settle; see PushSim._slump) ---
 ## Angle of repose, as the max height difference two neighbouring columns can
 ## hold. Runny is near zero, so it self-levels into a flat pool; solid holds a
