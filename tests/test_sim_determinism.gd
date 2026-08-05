@@ -10,10 +10,11 @@ func suite_name() -> String:
 	return "sim"
 
 
+## Built exactly the way the game builds it — through Tuning.base(), so this suite
+## verifies determinism on the numbers actually in play rather than on the code
+## defaults the shared .tres may have moved away from.
 func _make_level() -> LevelDef:
-	var level := LevelDef.new()
-	level.timeline = LevelGreybox.timeline()
-	return level
+	return LevelGreybox.build(Tuning.base())
 
 
 func _initial_state(level: LevelDef) -> SimState:

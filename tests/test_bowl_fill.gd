@@ -13,10 +13,24 @@ func suite_name() -> String:
 	return "bowl"
 
 
+## The SHARED tuning, not LevelDef's code defaults — these assertions are meant to
+## hold for whatever is actually tuned in base_tuning.tres. If a tuning change
+## breaks one (runny stops levelling flat, the in-band gradient goes to zero) that
+## is the suite doing its job, not a stale fixture.
 func _level(base_thickness: float = 0.5) -> LevelDef:
-	var l := LevelDef.new()
+	var l := Tuning.base()
 	l.thickness_base = base_thickness
 	return l
+
+
+## The middle of the level's OWN Flow band. Read off the level under test, never
+## off a fresh LevelDef — otherwise tuning the band in the shared .tres would pin
+## the needle somewhere the band no longer is.
+func _band_mid(level: LevelDef) -> float:
+	if level.flow_bands.is_empty():
+		return 0.5
+	var band: Vector2 = level.flow_bands[0]
+	return (band.x + band.y) * 0.5
 
 
 func _state(level: LevelDef) -> SimState:
@@ -90,8 +104,7 @@ func test_neutral_thickness_preserves_the_tuned_anchors() -> void:
 
 ## The headline of the change: thicker fills faster, on identical inputs.
 func test_thicker_fills_faster() -> void:
-	var band: Vector2 = LevelDef.new().flow_bands[0]
-	var mid := (band.x + band.y) * 0.5
+	var mid := _band_mid(_level())
 	# thickness_push_gain is zeroed so the ONLY difference is the level baseline.
 	var runny := _level(0.1)
 	runny.thickness_push_gain = 0.0
@@ -131,8 +144,7 @@ func test_the_settle_conserves_mass() -> void:
 ## Runny self-levels into a flat pool; solid holds a mound where it landed. This
 ## is the angle of repose doing its job, and it's the whole visual payoff.
 func test_runny_levels_flat_and_solid_stacks() -> void:
-	var band: Vector2 = LevelDef.new().flow_bands[0]
-	var mid := (band.x + band.y) * 0.5
+	var mid := _band_mid(_level())
 
 	var runny := _level(0.0)
 	runny.thickness_push_gain = 0.0

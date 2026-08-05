@@ -16,12 +16,17 @@ extends Control
 ## Resource with @export fields. Leave `tuning_override` empty to use its
 ## defaults — the same values the test suites read — or assign a .tres to
 ## experiment without editing code.
-## Which level content to run. GREYBOX proves the machinery (the tuning-override
-## path); CHURCH and RAVE are the two cover-window levels (full LevelDef factories,
-## same system at opposite polarity). Switch at runtime with the 1 / 2 / 3 keys.
+## Which level content to run. GREYBOX runs the shared tuning unmodified, so it's
+## the level that shows you what a tuning change did; CHURCH and RAVE are the two
+## cover-window levels (same system at opposite polarity). All three are built the
+## same way, from the same tuning base. Switch at runtime with the 1 / 2 / 3 keys.
 enum LevelKind { GREYBOX, CHURCH, RAVE }
 @export var level_kind: LevelKind = LevelKind.GREYBOX
 
+## Leave EMPTY for normal play: tuning then comes from data/levels/base_tuning.tres
+## via Tuning.base(), which is also what the test suites read — one source, so the
+## suite checks the numbers you're actually playing. Assign a .tres here only to
+## try something on this scene alone, knowing the tests won't see it.
 @export var tuning_override: LevelDef
 
 ## The per-match seed. Everything random — currently the jitter on when hazards
@@ -296,19 +301,27 @@ func _drain_intent() -> PlayerIntent:
 	return intent
 
 
+## Every venue is built the same way: take the shared tuning base, hand it to the
+## level's factory, let the factory specialise it. The base used to reach only the
+## grey-box, so tuning it left the Church and the Rave on the code defaults.
 func _build_level() -> LevelDef:
+	var base := _tuning_base()
 	match level_kind:
 		LevelKind.CHURCH:
-			# A full factory: church tuning + its own cover-window timeline.
-			return LevelChurch.build()
+			# Quiet room, exposed by default — a swell shields you.
+			return LevelChurch.build(base)
 		LevelKind.RAVE:
 			# The Church's inverse — covered by default, hushes expose you.
-			return LevelRave.build()
+			return LevelRave.build(base)
 		_:
-			# duplicate() so a shared .tres override is never mutated by the timeline.
-			var level: LevelDef = tuning_override.duplicate() if tuning_override != null else LevelDef.new()
-			level.timeline = LevelGreybox.timeline()
-			return level
+			return LevelGreybox.build(base)
+
+
+## The shared tuning, or this scene's experiment override if one is assigned.
+## Always a fresh copy — the timeline resolves its trigger points in place, so a
+## shared instance would carry one run's jitter into the next.
+func _tuning_base() -> LevelDef:
+	return tuning_override.duplicate() if tuning_override != null else Tuning.base()
 
 
 func _reset() -> void:

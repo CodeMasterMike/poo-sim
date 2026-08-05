@@ -1,0 +1,46 @@
+[gd_resource type="Resource" script_class="LevelDef" load_steps=2 format=3]
+
+[ext_resource type="Script" uid="uid://cho4teun6w373" path="res://scripts/sim/level_def.gd" id="1_leveldef"]
+
+[resource]
+script = ExtResource("1_leveldef")
+push_accel = 2.2
+gravity = 1.6
+damping = 3.0
+max_speed = 1.5
+flow_bands = Array[Vector2]([Vector2(0.5, 0.72)])
+fill_dead = 0.5
+fill_flow = 2.2
+fill_red = 4.5
+fill_flow_spread = 0.25
+thickness_base = 0.5
+thickness_push_gain = 0.9
+thickness_ease = 0.8
+density_swing = 0.35
+repose_runny = 0.0015
+repose_solid = 0.06
+slump_relax_runny = 0.85
+slump_relax_solid = 0.22
+sway_ambient = 0.035
+sway_push = 0.1
+sway_turbulence = 0.17
+sway_rate = 0.42
+red_strain_time = 2.5
+splash_stall_time = 0.5
+composure_seconds = 80.0
+composure_drain_dead = 1.7
+composure_drain_red = 1.3
+splash_cleanliness_hit = 12.0
+red_noise_rate = 5.0
+smell_rate = 0.35
+detect_threshold = 35.0
+silence_noise_rate = 0.0
+silence_push_cap = 0.5
+baseline_exposed = true
+smell_charge_rate = 0.5
+smell_decay_rate = 0.25
+smell_telegraph = 1.2
+smell_window = 1.6
+smell_cost = 18.0
+swipe_min = 15.0
+jolt_recenter = 0.6
