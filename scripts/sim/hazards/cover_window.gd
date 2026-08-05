@@ -10,9 +10,10 @@ extends RefCounted
 ## The Push turns into a timing game keyed to the ambient sound.
 ##
 ## The window is NOT a reaction test: it just holds its phase, and PushSim/the view
-## read `Hazards.under_cover(state)` (derived from any ACTIVE cover slot) to know
-## whether cover is up. That's why it needs no `intent` — nothing the player does
-## resolves it; it simply expires.
+## ask `Hazards.room_exposed(state, level)` — which resolves this window against the
+## level's polarity, via `Hazards.acoustic_window_active(state)` — to know whether
+## it is currently safe to push. That's why it needs no `intent`: nothing the player
+## does resolves it; it simply expires.
 ##
 ## `scored = false`: a window ending is not a pass/fail, so it retires without the
 ## resolution flash and without touching the hazard tallies. TELEGRAPH is the cover

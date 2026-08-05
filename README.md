@@ -10,10 +10,13 @@ hazards that are actively trying to embarrass, expose, or defeat you.
 
 > **Status:** The **Push** prototype (roadmap step 1) is built and is the default run scene —
 > press Play to try it. The HUD has had a vector-art pass, and the seated screen is now a scene:
-> a tiled cubicle, a man on a toilet, and a bowl that fills with what you produced — Relief is no
-> longer an abstract bar but the contents of the bowl, laid down one layer at a time at whatever
-> width the needle was. Hazard actors (door, neighbour shadow, phone) are still placeholder
-> shapes. The design is fully specced (`docs/specs/`); the next milestone is the Vertical Slice —
+> a tiled cubicle, a man on a toilet, and a bowl that fills with what you produced. Relief is no
+> longer an abstract bar — it is mass evacuated into the bowl, which the sim settles as a
+> heightfield every tick, so what you produced has a *consistency* and a *shape*. Runny slumps
+> into a flat pool; firm holds a mound. The run ends when the pile reaches the goal line, so how
+> you played decides how much it takes. Three venues ship (Prototype, Church, Rave) over five
+> live hazards. Hazard actors (door, neighbour shadow, phone) are still placeholder shapes. The
+> design is fully specced (`docs/specs/`); the next milestone is the Vertical Slice —
 > see [docs/specs/poo-sim-spec.md](docs/specs/poo-sim-spec.md) §14/§16.
 
 ## Getting started
@@ -21,29 +24,39 @@ hazards that are actively trying to embarrass, expose, or defeat you.
 1. Install **Godot 4.7.x** (standard GDScript build — *not* the .NET/C# build; see the spec's
    "Why GDScript and not C#").
 2. Open the Godot project manager → **Import** → select this folder's `project.godot`.
-3. Press **Play** (F5) to run the **Push** prototype: hold anywhere to raise the needle, keep
-   it in the green Flow Zone to fill **Relief** to 100%, and press **R** to retry.
+3. Press **Play** (F5) to run the **Push** prototype: hold anywhere to raise the needle, keep it
+   in the green Flow Zone to fill the bowl, and press **R** to retry. **H** opens the in-game
+   field manual; **1/2/3** switch venue.
 
 ## Project layout
+
+The load-bearing split is `scripts/sim/` versus everything else. The sim is engine-pure,
+deterministic and seeded — it holds no `Node` references and never reads live input — so the same
+core can later drive a ghost replay or a mirrored 1v1 board. The view only ever *reads* `SimState`.
+See §17 of the master spec for the five guardrails that keep it that way.
 
 ```
 project.godot          Godot project config (portrait, mobile renderer)
 icon.svg               App/editor icon (placeholder)
 scenes/
-  main/                Entry scene (placeholder)
-  sit/                 The Sit — the core game (Push + four meters + hazards)
-  prep/                Prep bookend
-  getaway/             The Getaway bookend
-  results/             Results / scoring screen
-  ui/                  Shared UI (HUD, meters, prompt band, menus)
+  sit/                 The Sit — the core game, and the default run scene
+  main/                Entry scene (scaffolded, not yet built)
+  prep/ getaway/       Bookend scenes (scaffolded, not yet built)
+  results/ ui/         Results screen and shared UI (scaffolded, not yet built)
 scripts/
-  autoload/            Global singletons (game state, audio, routing, saves)
-  systems/             Core systems (Push controller, meters, scoring, hazard scheduler)
-  hazards/             One script per hazard over a shared base
+  sim/                 THE SIMULATION — deterministic, seeded, engine-pure.
+                       Tick order, tuning schema, scoring, the event timeline.
+    hazards/           One stateless operator per hazard, over a shared HazardSlot
+  content/             Level factories — timelines and per-venue tuning. Content only.
+  systems/             The Sit's view + controller (input, fixed-step driver, _draw)
+  ui/                  Overlays and the locked palette
+  debug/               The auto-player (a scripted "competent human", toggle with B)
+  autoload/            Global singletons (scaffolded, not yet built)
+tests/                 GDScript suites — run them from the Godot AI dock or MCP
 data/
-  levels/              Config-driven level definitions
-  environments/        Per-environment tuning
-  hazards/             Config-driven hazard parameters
+  levels/              base_tuning.tres — the shared tuning every venue is built from
+  environments/        Per-environment tuning (scaffolded)
+  hazards/             Config-driven hazard parameters (scaffolded)
 assets/
   audio/{music,sfx,foley,voice,ambience}/
   fonts/  sprites/

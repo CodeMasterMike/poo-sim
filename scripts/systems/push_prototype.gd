@@ -1,5 +1,5 @@
 extends Control
-## The Sit — view + controller (grey-box).
+## The Sit — view + controller.
 ##
 ## This node owns NO gameplay state. It builds a MatchConfig, runs the sim on a
 ## fixed timestep, and renders whatever the SimState says. All rules live in
@@ -7,10 +7,12 @@ extends Control
 ## drive a ghost replay or a mirrored 1v1 board (spec §17).
 ##
 ## Hold ANYWHERE to raise the needle; release to let it fall. Keep the needle in
-## the green Flow Zone to fill Relief cleanly. The Flow Zone shifts mid-run and a
-## scripted event drops Discretion — that's the timeline talking. Camp the red and
-## you splash (Cleanliness) and get loud (Discretion). Let Composure run out and
-## you lose. Fill Relief to 100% to win. Tap or press R to retry.
+## the green Flow Zone to fill cleanly. The Flow Zone shifts and narrows mid-run —
+## that's the timeline talking — and the hazards arrive on top of it. Camp the red
+## and you splash (Cleanliness) and get loud (Discretion). Let Composure run out and
+## you lose. You WIN when the pile in the bowl reaches the goal line: how much that
+## takes depends on how it settled, so a firm, well-aimed pile gets there on less.
+## Tap or press R to retry.
 ##
 ## Tuning lives in exactly ONE place: LevelDef (scripts/sim/level_def.gd), a
 ## Resource with @export fields. Leave `tuning_override` empty to use its
