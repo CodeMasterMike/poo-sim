@@ -20,6 +20,7 @@ func _initial_state(level: LevelDef) -> SimState:
 	var s := SimState.new()
 	s.flow_bands = level.flow_bands.duplicate()
 	s.flow_target_bands = level.flow_bands.duplicate()
+	s.thickness = level.thickness_base
 	return s
 
 
@@ -65,8 +66,13 @@ func test_same_seed_same_intents_reproduce_exactly() -> void:
 	assert_eq(a.hazards_passed, b.hazards_passed, "hazard outcomes diverged")
 	assert_eq(a.hazards_failed, b.hazards_failed, "hazard outcomes diverged")
 	assert_eq(a.hazard_resolve_pulse, b.hazard_resolve_pulse, "hazard schedule diverged")
+	# The bowl's settled heightfield is sim state now, so it has to replay too —
+	# this is the assertion that would catch anyone reaching for engine physics.
+	assert_eq(a.thickness, b.thickness, "thickness diverged")
+	assert_eq(a.bowl, b.bowl, "the settled pile diverged")
 	# The pattern must actually exercise the systems, or "identical" is hollow.
 	assert_gt(a.total_fill, 0.0, "run produced no Relief — pattern didn't exercise the sim")
+	assert_gt(a.bowl_peak(), 0.0, "nothing landed in the bowl")
 
 
 ## Composure hitting zero ends the run as a loss, not a win.

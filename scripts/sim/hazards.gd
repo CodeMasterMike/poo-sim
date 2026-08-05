@@ -99,6 +99,24 @@ static func room_exposed(state: SimState, level: LevelDef) -> bool:
 	return level.baseline_exposed != acoustic_window_active(state)
 
 
+## How hard the room is shaking you right now, 0..1. Turbulence, a passing truck,
+## a wobbling porta-potty: anything that makes you a less steady platform.
+##
+## Kept here rather than in PushSim, and derived from the hazard list rather than a
+## stored flag, for the same reason room_exposed is: it's a QUESTION about the
+## in-flight set, and any later hazard that shakes you (a train, a bass drop) joins
+## by adding an arm here — PushSim and SimState don't change.
+##
+## The Jolt already carries its impulse magnitude in `slot.cost`, so that doubles
+## as the shake strength; it's normalised against a nominal 1.2 impulse.
+static func turbulence(state: SimState) -> float:
+	var worst := 0.0
+	for slot in state.hazards:
+		if slot.kind == SimEvent.Kind.JOLT and slot.phase == HazardSlot.Phase.ACTIVE:
+			worst = maxf(worst, clampf(slot.cost / 1.2, 0.0, 1.0))
+	return worst
+
+
 ## The first in-flight slot of a kind, or null. Used by the view for prompts.
 static func find(state: SimState, kind: int) -> HazardSlot:
 	for slot in state.hazards:

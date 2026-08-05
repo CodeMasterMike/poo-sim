@@ -69,24 +69,32 @@ func tick(state: SimState, intent: PlayerIntent, clock: SimClock, level: LevelDe
 			Hazards.start(state, SimEvent.Kind.SMELL, SimEvent.SmellPayload.new(
 					level.smell_telegraph, level.smell_window, level.smell_cost), clock)
 
+	# --- Consistency and aim. Both tracked whether or not anything is currently
+	#     coming out, so a Knock freeze doesn't also freeze the log or the waver. ---
+	_update_thickness(state, level, dt)
+	_update_sway(state, level, dt)
+
 	# --- Relief fill (frozen during a splash stall OR a Knock freeze) ---
 	if not frozen:
 		if state.splash_stall > 0.0:
 			state.splash_stall = maxf(0.0, state.splash_stall - dt)
 		else:
-			var rate := level.fill_dead
-			if zone == ZONE_FLOW:
-				rate = level.fill_flow
-			elif zone == ZONE_RED:
-				rate = level.fill_red
-			var gained := rate * dt
-			state.relief = minf(100.0, state.relief + gained)
+			# Relief is mass evacuated: how fast it's moving (the needle curve)
+			# times how much of you each second of it is (the density).
+			var rate := flow_rate(state, level) * density_of(state.thickness, level)
+			var gained := minf(rate * dt, 100.0 - state.relief)
+			state.relief += gained
 			state.total_fill += gained
 			if zone == ZONE_FLOW:
 				state.flow_fill += gained
+			_deposit(state, level, gained)
 			if state.relief >= 100.0:
 				state.phase = SimState.Phase.WON
 				return
+
+	# --- The bowl keeps settling even while the fill is frozen: a runny pool is
+	#     still finding its level whether or not you're producing. ---
+	_slump(state, level)
 
 	# --- Composure: the Knock bleeds it while frozen; otherwise it drains by zone ---
 	if not frozen:
@@ -129,6 +137,162 @@ static func zone_of(state: SimState) -> int:
 			return ZONE_FLOW
 		highest = maxf(highest, band.y)
 	return ZONE_RED if state.needle > highest else ZONE_DEAD
+
+
+## How fast matter is moving, as a CONTINUOUS function of the needle.
+##
+## This used to be a three-step lookup on the zone, which meant the needle's
+## position inside the Flow band was worth nothing — sitting on the band's floor
+## filled exactly as fast as riding its ceiling, so every clean run took the same
+## time and the bowl art (which has always drawn a harder push as a fatter layer)
+## was describing something the sim didn't do.
+##
+## The three anchors keep their exact meaning; only the space between them is
+## interpolated. Set `fill_flow_spread` to 0 to get the old step function back.
+static func flow_rate(state: SimState, level: LevelDef) -> float:
+	if state.flow_bands.is_empty():
+		return level.fill_dead
+	var flow_lo := level.fill_flow * (1.0 - level.fill_flow_spread)
+	var flow_hi := level.fill_flow * (1.0 + level.fill_flow_spread)
+	var n := state.needle
+
+	var lowest := state.flow_bands[0].x
+	var highest := state.flow_bands[0].y
+	for band in state.flow_bands:
+		lowest = minf(lowest, band.x)
+		highest = maxf(highest, band.y)
+		if n >= band.x and n <= band.y:
+			# Inside a band: floor pays flow_lo, ceiling pays flow_hi.
+			return lerpf(flow_lo, flow_hi, inverse_lerp(band.x, band.y, n)) \
+					if band.y > band.x else level.fill_flow
+
+	if n > highest:
+		# Above everything: ramp from the top band's ceiling up to the red anchor.
+		return lerpf(flow_hi, level.fill_red, 0.0 if highest >= 1.0 \
+				else inverse_lerp(highest, 1.0, n))
+	if n < lowest:
+		# Below everything: ramp from the dead anchor up to the lowest band's floor.
+		return lerpf(level.fill_dead, flow_lo, 0.0 if lowest <= 0.0 else n / lowest)
+	# In the gap of a SPLIT zone. zone_of() calls this dead, so it pays dead —
+	# a notch between two bands has to be worth avoiding or the split is free.
+	return level.fill_dead
+
+
+## Thicker matter is denser, so more of you leaves per second. Centred on 0.5, so
+## a level that seeds `thickness_base` at neutral fills at exactly the anchor
+## rates and every existing pacing number (the 80s Composure, the 45-75s sit)
+## holds without re-tuning.
+static func density_of(thickness: float, level: LevelDef) -> float:
+	return 1.0 + (thickness - 0.5) * 2.0 * level.density_swing
+
+
+## The middle of the Flow band(s) — the reference "neutral push". Both consistency
+## and the landing point are measured from here rather than from a fixed 0.5, so
+## when the timeline shifts the band the whole model re-centres with it instead of
+## quietly stranding the player on one side of it.
+static func band_centre(state: SimState) -> float:
+	if state.flow_bands.is_empty():
+		return 0.5
+	var lowest := state.flow_bands[0].x
+	var highest := state.flow_bands[0].y
+	for band in state.flow_bands:
+		lowest = minf(lowest, band.x)
+		highest = maxf(highest, band.y)
+	return (lowest + highest) * 0.5
+
+
+## Where the stream is landing, as a fraction across the bowl. Static and shared
+## with the view, so the stream you see falling and the column it actually feeds
+## cannot drift apart.
+static func drop_u(state: SimState, level: LevelDef) -> float:
+	return clampf(0.5 + state.sway, 0.0, 1.0)
+
+
+## Wander the landing point around the middle of the bowl.
+##
+## An earlier version mapped needle height straight onto lateral position, which
+## meant pushing harder aimed you further across the bowl — wrong on its face, and
+## it left half the bowl permanently clean while the other half built a spike.
+## Force doesn't steer you; it makes you a less steady platform. So the stream
+## hunts around the centre, and the amplitude — never the direction — is what
+## responds to how hard you're bearing down and to whatever the room is doing.
+##
+## Two sines at an irrational frequency ratio, so the path never settles into a
+## visible metronome. Pure function of accumulated sim time: no RNG, replays exact.
+func _update_sway(state: SimState, level: LevelDef, dt: float) -> void:
+	state.sway_clock += dt
+	# 0 at the Flow band's centre, 1 at full lock — how hard you're bearing down.
+	var centre := band_centre(state)
+	var force := clampf((state.needle - centre) / maxf(0.05, 1.0 - centre), 0.0, 1.0)
+	var amp := level.sway_ambient \
+			+ level.sway_push * force \
+			+ level.sway_turbulence * Hazards.turbulence(state)
+	var t := state.sway_clock * level.sway_rate * TAU
+	state.sway = amp * (sin(t) * 0.65 + sin(t * 1.618 + 1.7) * 0.35)
+
+
+## Ease thickness toward what the current push implies.
+func _update_thickness(state: SimState, level: LevelDef, dt: float) -> void:
+	var target := clampf(level.thickness_base
+			+ level.thickness_push_gain * (state.needle - band_centre(state)), 0.0, 1.0)
+	state.thickness += (target - state.thickness) * clampf(level.thickness_ease * dt, 0.0, 1.0)
+
+
+## Drop `gained` percent of Relief into the bowl, at the column the stream is
+## currently landing on. Split across two columns so the landing point slides
+## smoothly with the needle instead of snapping between buckets.
+func _deposit(state: SimState, level: LevelDef, gained: float) -> void:
+	var cols := state.bowl.size()
+	if cols <= 0 or gained <= 0.0:
+		return
+	# 100% Relief fills the bowl to the rim, so one column-height is 100/cols percent.
+	var units := gained * float(cols) / 100.0
+	var drop := drop_u(state, level) * float(cols - 1)
+	var i := clampi(int(floor(drop)), 0, cols - 1)
+	var f := drop - float(i)
+	if i + 1 < cols:
+		state.bowl[i] += units * (1.0 - f)
+		state.bowl[i + 1] += units * f
+	else:
+		state.bowl[i] += units
+
+
+## One relaxation sweep over the heightfield: neighbouring columns that differ by
+## more than the material's angle of repose trade matter until they don't. Runny
+## stuff has almost no repose and relaxes fast, so it finds its level and reads as
+## a flat pool; solid stuff holds a steep face and stacks into a mound.
+##
+## This is a sandpile automaton, NOT Godot physics, and that is deliberate: a
+## RigidBody pile is node-owned and not bit-reproducible, so putting one in the
+## Relief path would cost ghost replay and mirrored 1v1 boards (spec §17). A flat
+## float array reproduces exactly and snapshots for free.
+##
+## Transfers are accumulated against a snapshot and applied afterwards, so the
+## result doesn't depend on which end of the bowl the loop happens to start at.
+## Matter is only ever moved, never created — SimState.bowl_mass() is the guard.
+func _slump(state: SimState, level: LevelDef) -> void:
+	var cols := state.bowl.size()
+	if cols < 2:
+		return
+	var repose := lerpf(level.repose_runny, level.repose_solid, state.thickness)
+	var relax := lerpf(level.slump_relax_runny, level.slump_relax_solid, state.thickness)
+	var flux := PackedFloat32Array()
+	flux.resize(cols)
+	for i in cols - 1:
+		var diff := state.bowl[i] - state.bowl[i + 1]
+		var excess := absf(diff) - repose
+		if excess <= 0.0:
+			continue
+		# Half the excess, eased — a full correction would ring instead of settle.
+		var move := excess * 0.5 * relax
+		if diff > 0.0:
+			flux[i] -= move
+			flux[i + 1] += move
+		else:
+			flux[i] += move
+			flux[i + 1] -= move
+	for i in cols:
+		state.bowl[i] += flux[i]
 
 
 func _ramp_flow_bands(state: SimState, dt: float) -> void:

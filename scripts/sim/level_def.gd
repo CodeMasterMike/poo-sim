@@ -21,17 +21,85 @@ extends Resource
 # --- Flow zone (initial band set; more than one band = a split zone) ---
 @export var flow_bands: Array[Vector2] = [Vector2(0.50, 0.72)]
 
-# --- Relief fill (% per second, by zone) ---
+# --- Relief fill (% per second) ---
+## These three are ANCHORS on a continuous curve, not three flat rates (they used
+## to be a step function of zone, which meant needle position inside the Flow band
+## did nothing at all and every clean run finished in the same time). Each is the
+## rate at NEUTRAL thickness — see `density_swing`.
+##
 ## Sized to the spec's 45-75s sit (§3): perfect flow fills in ~45s, the greedy
 ## red line in ~29s. Dead-zone fill is a genuine crawl (~200s) so idling can
 ## never out-race Composure — doing nothing must lose, not win.
-@export var fill_dead: float = 0.5
-@export var fill_flow: float = 2.2
+@export var fill_dead: float = 0.5   ## rate at needle 0
+@export var fill_flow: float = 2.2   ## rate at the CENTRE of the Flow band
 ## Red must be a genuine temptation, not a trap. At 4.5 with the splash duty
 ## cycle below it nets ~3.4%/s — about 1.5x flow. (At 3.4 it netted *less* than
 ## flow once stalls were counted, so the greedy line was strictly dominated and
 ## nobody would ever take it.)
-@export var fill_red: float = 4.5
+@export var fill_red: float = 4.5    ## rate at needle 1.0
+## How much the rate varies ACROSS the Flow band, either side of `fill_flow`.
+## At 0.25 the band's ceiling pays 2.75%/s and its floor 1.65%/s — so riding the
+## top edge is a third faster, and the band stops being a flat plateau you can
+## park in. 0 restores the old behaviour exactly.
+@export var fill_flow_spread: float = 0.25
+
+# --- Consistency ---
+## The level's baseline consistency (0 = runny, 1 = solid) — what you ate. 0.5 is
+## neutral and fills at exactly the anchor rates above, so a level that leaves
+## this alone keeps its existing pacing to the decimal.
+@export var thickness_base: float = 0.5
+## How far sustained pressure shifts thickness off that baseline, per unit of
+## needle away from the Flow band's centre. Bearing down extrudes thicker matter.
+@export var thickness_push_gain: float = 0.9
+## Per-second ease toward the target. The lag IS the mechanic: a flick into the
+## red gets you the steeper rate curve but not the density bonus, because the
+## matter hasn't had time to thicken. You only get thick by committing.
+@export var thickness_ease: float = 0.8
+## Fill-rate multiplier swing across the full thickness range, centred on 0.5.
+## At 0.35: runny = 0.65x, neutral = 1.0x, solid = 1.35x.
+@export var density_swing: float = 0.35
+
+# --- Bowl physics (the settle; see PushSim._slump) ---
+## Angle of repose, as the max height difference two neighbouring columns can
+## hold. Runny is near zero, so it self-levels into a flat pool; solid holds a
+## steep face and stacks into a mound under wherever the stream is landing.
+##
+## `repose_runny` has to be MUCH smaller than it looks like it needs to be: it is
+## a per-column limit, so the profile can legally wedge by repose × columns end to
+## end, and that wedge IS the equilibrium — the settle has no obligation to remove
+## it. At 0.03 the bowl can legally sit at a 0.69 ramp, which reads as a slope, not
+## a pool. 0.0015 caps the whole bowl at ~0.035 out of level.
+@export var repose_runny: float = 0.0015
+## `repose_solid` is tuned for READABILITY, not physical accuracy, and the two
+## genuinely disagree here. The drawn cavity is about four times wider than it is
+## deep, so a realistic ~35° heap spanning it would stand roughly three cavity-
+## depths tall — a real toilet gets away with that because it has a narrow deep
+## trap, and this cutaway is a wide shallow box.
+##
+## What matters is the peak at the end of a run. A point-source pile cones out
+## over all 24 columns, and for a triangular profile peak ≈ mean + 6 × repose. At
+## 100% Relief the mean is exactly the rim, so 0.06 finishes standing ~1.35 proud
+## of it: mounded, clearly not a pool, still recognisably in the bowl. 0.13 (the
+## physical figure) finished at 1.8 and was already over the rim by the halfway
+## mark with half the bowl still bare.
+@export var repose_solid: float = 0.06
+## How fast the material relaxes toward that angle. Runny slumps almost at once;
+## solid barely creeps, so a mound you build stays built.
+@export var slump_relax_runny: float = 0.85
+@export var slump_relax_solid: float = 0.22
+# --- Where the stream lands (see PushSim._update_sway) ---
+## The landing point wavers around the CENTRE of the bowl. It deliberately does
+## not track needle height: aiming isn't what a harder push does, so force buys
+## amplitude, not direction. These are offsets in bowl-widths either side of
+## centre, and they add.
+##
+## This is also the environment hook the airplane wants — crank `sway_ambient`
+## and `sway_turbulence` and the whole level is fighting a moving target, with no
+## new system behind it.
+@export var sway_ambient: float = 0.035     ## baseline waver, even at a gentle push
+@export var sway_push: float = 0.10         ## extra amplitude at full-force push
+@export var sway_turbulence: float = 0.17   ## extra while the room is shaking you
+@export var sway_rate: float = 0.42         ## oscillations per second
 
 # --- Red-zone risk ---
 ## 2.5s of strain means a short red burst is free, which makes red a tactical
