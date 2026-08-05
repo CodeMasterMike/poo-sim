@@ -140,8 +140,9 @@ func test_window_toggles_then_retires_unscored() -> void:
 # ------------------------------------------------------------------- level builds
 
 ## The Church factory builds a coherent exposed-baseline room with windows scheduled.
+## Built through Tuning.base(), the way the game builds it.
 func test_church_level_builds() -> void:
-	var level := LevelChurch.build()
+	var level := LevelChurch.build(Tuning.base())
 	assert_true(level.silence_noise_rate > 0.0, "the Church must be a quiet room")
 	assert_true(level.baseline_exposed, "the Church is exposed by default (silence)")
 	assert_true(_count_windows(level) >= 3, "the Church should schedule several cover windows")
@@ -149,10 +150,39 @@ func test_church_level_builds() -> void:
 
 ## The Rave factory builds a coherent covered-baseline room with hushes scheduled.
 func test_rave_level_builds() -> void:
-	var level := LevelRave.build()
+	var level := LevelRave.build(Tuning.base())
 	assert_true(level.silence_noise_rate > 0.0, "the Rave must be a quiet room")
 	assert_false(level.baseline_exposed, "the Rave is covered by default (the bass)")
 	assert_true(_count_windows(level) >= 3, "the Rave should schedule several hushes")
+
+
+## The pair is one rule at two polarities, so everything except that one bit — and
+## the pacing each venue sets deliberately — has to come out identical. This is the
+## guard against the two files drifting apart again.
+func test_the_pair_differs_only_in_polarity() -> void:
+	var church := LevelChurch.build(Tuning.base())
+	var rave := LevelRave.build(Tuning.base())
+
+	assert_ne(church.baseline_exposed, rave.baseline_exposed, "the polarity IS the difference")
+	assert_eq(church.silence_noise_rate, rave.silence_noise_rate,
+			"being audible must cost the same in both, or the comparison isn't about polarity")
+	assert_eq(church.silence_push_cap, rave.silence_push_cap, "same cap, same rule")
+
+
+## The quiet-room cap is DERIVED from the Flow floor, not repeated as a literal —
+## so retuning the band in the shared .tres moves the cap with it. Written as two
+## numbers in two files, these could drift apart silently.
+func test_the_silence_cap_follows_the_flow_floor() -> void:
+	var base := Tuning.base()
+	var moved := Vector2(0.35, 0.66)
+	base.flow_bands = [moved] as Array[Vector2]
+	var level := LevelChurch.build(base)
+
+	# Compared against the band itself, not the literal: Vector2 stores float32, so
+	# `moved.x` is not bit-equal to a 0.35 float64 literal.
+	assert_eq(level.silence_push_cap, moved.x,
+			"the cap should have followed the band's floor down")
+	assert_ne(level.silence_push_cap, 0.5, "it should no longer be the default cap")
 
 
 func _count_windows(level: LevelDef) -> int:

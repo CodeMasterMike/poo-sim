@@ -10,6 +10,16 @@ extends RefCounted
 ##
 ## Content only: swap this for real levels without touching scripts/sim/.
 
+## Same signature as every other venue, so the host builds all three the same way.
+## The grey-box adds no tuning of its own — that's the point of it: it runs the
+## shared numbers unmodified, so it's the level that shows you what a tuning change
+## actually did.
+static func build(base: LevelDef = null) -> LevelDef:
+	var level: LevelDef = base if base != null else LevelDef.new()
+	level.timeline = timeline()
+	return level
+
+
 static func timeline() -> Array[SimEvent]:
 	var t: Array[SimEvent] = []
 

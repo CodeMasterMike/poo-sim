@@ -6,28 +6,31 @@ extends RefCounted
 ## Discretion bleeds (see PushSim's silence penalty + CoverWindowHazard). The Push
 ## becomes a timing game — bank Relief in the swells, ease off in the hush.
 ##
-## Unlike the timeline-only greybox, this is a FULL LevelDef factory: the silence
-## penalty and its cap are level tuning, so they belong here with the timeline that
-## assumes them. Build a fresh one per run (it's cheap) — never share one, since
-## the timeline resolves its trigger points in place.
+## The quiet-room machinery is shared with the Rave (see QuietRoom) — they are one
+## rule at opposite polarity. What lives HERE is only what makes it the Church: the
+## pacing, and the timeline that assumes it.
 ##
-## Content only: nothing here reaches into scripts/sim/. To retune, edit the
-## numbers below and replay.
+## Content only: nothing here reaches into scripts/sim/.
 
-static func build() -> LevelDef:
-	var level := LevelDef.new()
+## A longer, tenser sit: you spend real time waiting for cover.
+const COMPOSURE_SECONDS: float = 105.0
+## Easing off in the hush is the CORRECT play here, so the anti-turtle dead-zone
+## drain is neutered entirely — otherwise the level would punish you for playing
+## it right.
+const DEAD_DRAIN: float = 1.0
 
-	# The quiet room. The cap sits at the Flow floor, so in silence you can idle low
-	# for free but any flow-level push is audible — that's the whole rule.
-	level.silence_noise_rate = 14.0
-	level.silence_push_cap = 0.50
-	level.flow_bands = [Vector2(0.50, 0.72)]
 
-	# A longer, tenser sit: you spend real time waiting for cover. Easing off in the
-	# hush is the CORRECT play here, so the anti-turtle dead-zone drain is neutered
-	# to 1.0 — otherwise the level would punish you for playing it right.
-	level.composure_seconds = 105.0
-	level.composure_drain_dead = 1.0
+## `base` is the shared tuning (see Tuning.base()); omit it and the LevelDef
+## defaults are used. Build a fresh one per run — never share an instance, since
+## the timeline resolves its trigger points in place.
+static func build(base: LevelDef = null) -> LevelDef:
+	var level: LevelDef = base if base != null else LevelDef.new()
+
+	# Exposed by default: silence is the baseline and a swell shields you.
+	QuietRoom.apply_tuning(level, true)
+
+	level.composure_seconds = COMPOSURE_SECONDS
+	level.composure_drain_dead = DEAD_DRAIN
 
 	level.timeline = _timeline()
 	return level
@@ -40,18 +43,14 @@ static func _timeline() -> Array[SimEvent]:
 	t.append(SimEvent.prompt(0.5, "SILENCE — wait for cover", 2.2))
 	# The first swell is heavily telegraphed (the organ warming up) and generous —
 	# a window you basically can't miss, per the curriculum's "introduce safe".
-	t.append(SimEvent.cover(3.0, 1.8, 5.0))
+	t.append(QuietRoom.window(3.0, 1.8, 5.0))
 
-	# MIDDLE — a steady rhythm of hymn swells with quiet hushes between. Fixed
-	# cadence, no jitter: the groove is the point, and it stays deterministic.
-	var when := 11.0
-	for _i in 8:
-		t.append(SimEvent.cover(when, 1.2, 4.0))
-		when += 7.0
+	# MIDDLE — a steady rhythm of hymn swells with quiet hushes between.
+	t.append_array(QuietRoom.run(11.0, 8, 7.0, 1.2, 4.0))
 
 	# THE FINAL VERSE — a last, long swell to finish on, keyed to progress so the
 	# closing window lands as the player nears the goal (the "so close" pinch).
 	t.append(SimEvent.prompt(0.0, "THE FINAL VERSE — ride the swell", 2.0).on_relief(85.0))
-	t.append(SimEvent.cover(0.0, 1.2, 6.0).on_relief(87.0))
+	t.append(QuietRoom.window(0.0, 1.2, 6.0).on_relief(87.0))
 
 	return t
