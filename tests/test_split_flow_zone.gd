@@ -87,10 +87,10 @@ func test_the_span_covers_both_bands() -> void:
 	assert_eq(span.y, HIGH.y, "the span's ceiling is the highest band's ceiling")
 
 
-## Documents the one sharp edge of a split, so it can't surprise anyone later: the
-## reference "neutral push" is the middle of the SPAN, which for a split lands in
-## the notch. That is fine where it is used today (consistency and sway both want a
-## fixed reference point) and wrong as a re-centre target — see PushSim.band_centre.
+## The sharp edge of a split: the reference "neutral push" is the middle of the
+## SPAN, which here lands in the notch. That is correct for what band_centre is for
+## — consistency and sway want a fixed reference that doesn't jump between bands —
+## and is exactly why it must not be used to place the needle.
 func test_the_band_centre_of_a_split_falls_in_the_notch() -> void:
 	var level := _level()
 	var centre := PushSim.band_centre(_at(level, 0.0))
@@ -99,3 +99,48 @@ func test_the_band_centre_of_a_split_falls_in_the_notch() -> void:
 			"the span's midpoint (%f) is expected to sit in the notch" % centre)
 	assert_eq(PushSim.zone_of(_at(level, centre)), PushSim.ZONE_DEAD,
 			"...which means the reference push is a DEAD one on a split level")
+
+
+## ...so anything that PUTS the needle somewhere asks for the nearest band instead,
+## and lands in flow from either side of the notch.
+func test_the_nearest_band_centre_lands_in_flow_from_either_side() -> void:
+	var level := _level()
+	for needle in [0.0, 0.20, LOW.x, 0.40, 0.46]:
+		var target := PushSim.nearest_band_centre(_at(level, needle))
+		assert_eq(target, (LOW.x + LOW.y) * 0.5, "from %f the lower band is nearer" % needle)
+	for needle in [0.58, HIGH.x, 0.70, 1.0]:
+		var target := PushSim.nearest_band_centre(_at(level, needle))
+		assert_eq(target, (HIGH.x + HIGH.y) * 0.5, "from %f the upper band is nearer" % needle)
+	assert_eq(PushSim.zone_of(_at(level, PushSim.nearest_band_centre(_at(level, 0.0)))),
+			PushSim.ZONE_FLOW, "the re-centre target must be inside a band")
+
+
+## A jolt that throws you low must not recover you into the notch.
+func test_a_jolt_recentre_does_not_land_in_the_notch() -> void:
+	var level := _level()
+	level.jolt_recenter = 1.0        # full drag, so the target is exactly where you land
+	var state := _at(level, 0.02)    # thrown to the floor
+	var slot := HazardSlot.new()
+	slot.kind = SimEvent.Kind.JOLT
+	slot.phase = HazardSlot.Phase.ACTIVE
+	slot.active_len = 1.5
+	slot.timer = 1.5
+	state.hazards.append(slot)
+
+	var intent := PlayerIntent.new()
+	intent.swipe = Vector2(level.swipe_min + 10.0, 0.0)
+	JoltHazard.tick(state, slot, intent, level, SimClock.new(1337), SimClock.FIXED_DT)
+
+	assert_eq(slot.phase, HazardSlot.Phase.RESOLVED, "the swipe should have answered the jolt")
+	assert_eq(PushSim.zone_of(state), PushSim.ZONE_FLOW,
+			"recovered to %f, which is not in a band" % state.needle)
+
+
+## On every level that ships — one band — the two agree exactly, which is why this
+## distinction could sit unnoticed and why making it changes no current behaviour.
+func test_on_a_single_band_the_two_centres_agree() -> void:
+	var level := Tuning.base()
+	for needle in [0.0, 0.3, 0.61, 1.0]:
+		var s := _at(level, needle)
+		assert_eq(PushSim.nearest_band_centre(s), PushSim.band_centre(s),
+				"they must not diverge on a single band (needle %f)" % needle)

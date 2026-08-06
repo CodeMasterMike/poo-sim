@@ -52,7 +52,9 @@ func _process(_delta: float) -> void:
 		sit.set_auto_hold(false)
 		return
 
-	var target: float = PushSim.band_centre(st) + aim_bias
+	# The nearest band, not the span's middle: on a split zone the latter is the dead
+	# notch, and a bot aiming at it would measure a level nobody would play that way.
+	var target: float = PushSim.nearest_band_centre(st) + aim_bias
 	# In a quiet room (Church or Rave), pushing above the silence cap while the room
 	# is exposed is audible — so hover just below the cap while exposed, and only push
 	# into Flow when it's safe. Lets a bot run actually measure winnability either way.

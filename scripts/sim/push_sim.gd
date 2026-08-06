@@ -226,16 +226,42 @@ static func density_of(thickness: float, level: LevelDef) -> float:
 ## those agree exactly, so no shipped level ever saw the difference — which is
 ## precisely why two of them could sit there unnoticed.
 ##
-## Caveat for the first SPLIT level: the midpoint of the span falls in the GAP
-## between two bands, which `_curve_rate` pays at the dead rate. That is fine as a
-## reference point for consistency and sway, and wrong as a re-centre target — a
-## split zone will want a "nearest point inside a band" alongside this, not
-## instead of it.
+## On a SPLIT zone the midpoint of the span falls in the GAP between two bands,
+## which `_curve_rate` pays at the dead rate. That is correct HERE and wrong as a
+## place to put the needle — see nearest_band_centre for the other job. Consistency
+## and sway want a fixed reference that doesn't jump, so they keep this one.
 static func band_centre(state: SimState) -> float:
 	if state.flow_bands.is_empty():
 		return 0.5
 	var span := state.band_span()
 	return (span.x + span.y) * 0.5
+
+
+## The middle of whichever band the needle is nearest — where you'd PUT the needle,
+## as against band_centre's "what counts as a neutral push".
+##
+## The two are the same number on every level that ships, because they all run a
+## single band. They part company on a split, where band_centre names the dead notch
+## between the bands: dragging a jolted needle there would deposit the player in the
+## one place on the gauge that pays the dead rate, which is a strange reward for
+## answering the hazard correctly.
+##
+## Ties go to the lower band — arbitrary, but it has to be decided somewhere or the
+## result stops being a pure function of the state, and replays would drift.
+static func nearest_band_centre(state: SimState) -> float:
+	if state.flow_bands.is_empty():
+		return 0.5
+	var best := 0.0
+	var best_gap := INF
+	for band in state.flow_bands:
+		var mid: float = (band.x + band.y) * 0.5
+		# Distance to the band itself, not to its middle: with bands of unequal
+		# width, the nearer middle is not always the nearer band.
+		var gap: float = maxf(0.0, maxf(band.x - state.needle, state.needle - band.y))
+		if gap < best_gap:
+			best_gap = gap
+			best = mid
+	return best
 
 
 ## Where the stream is landing, as a fraction across the bowl. Static and shared
