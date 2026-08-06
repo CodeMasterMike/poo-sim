@@ -23,7 +23,15 @@ extends Node
 ##
 ## Toggle at runtime with B, or tick `auto_play` on the Sit before pressing play.
 
-## The Sit node being driven. Must expose sim_state() and set_auto_hold().
+## The Sit node being driven. It must expose the whole intent surface —
+## sim_state(), current_level(), set_auto_hold(), set_auto_swipe() and
+## set_auto_tap() — and all five are called directly, without a has_method guard.
+##
+## That is deliberate. current_level() used to be the one call behind such a guard,
+## which meant a host missing it left `level` null, skipped the quiet-room branch
+## below, and had the bot play the Church as though silence cost nothing — a run
+## that looks fine and measures the wrong thing. For a tool whose entire output is
+## measurements, failing loudly beats reporting a number that isn't true.
 var sit: Node = null
 
 ## Nudges the aim off the band midpoint. The needle carries momentum, so a small
@@ -58,7 +66,7 @@ func _process(_delta: float) -> void:
 	# In a quiet room (Church or Rave), pushing above the silence cap while the room
 	# is exposed is audible — so hover just below the cap while exposed, and only push
 	# into Flow when it's safe. Lets a bot run actually measure winnability either way.
-	var level: LevelDef = sit.current_level() if sit.has_method("current_level") else null
+	var level: LevelDef = sit.current_level()
 	if level != null and level.is_quiet_room() and Hazards.room_exposed(st, level):
 		target = maxf(0.0, level.silence_push_cap - 0.06)
 	sit.set_auto_hold(st.needle < target)
