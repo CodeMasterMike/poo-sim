@@ -420,7 +420,7 @@ func _draw() -> void:
 	_draw_stink(w, h)
 
 	# The venue name lives in the LEVEL button (top-left); keep the title clean.
-	_text(font, "The Push", 0, int(h * 0.045), w, int(h * 0.026), TEXT)
+	VectorDraw.text(self, font, "The Push", 0, int(h * 0.045), w, int(h * 0.026), TEXT)
 
 	_draw_meters_top(font, w, h)
 	_draw_quiet_status(font, w, h)
@@ -432,19 +432,19 @@ func _draw() -> void:
 
 	# Footer readouts.
 	var fr := _state.flow_ratio()
-	_text(font, "Flow %d%%   ·   %.1fs" % [int(round(fr * 100.0)), _clock.elapsed],
+	VectorDraw.text(self, font, "Flow %d%%   ·   %.1fs" % [int(round(fr * 100.0)), _clock.elapsed],
 			0, int(h * 0.88), w, int(h * 0.022), TEXT_DIM)
-	_text(font, "HOLD push  ·  release relax  ·  R restart  ·  1/2/3 level  ·  H manual  ·  B autoplay",
+	VectorDraw.text(self, font, "HOLD push  ·  release relax  ·  R restart  ·  1/2/3 level  ·  H manual  ·  B autoplay",
 			0, int(h * 0.93), w, int(h * 0.018), TEXT_DIM)
 	if auto_play:
-		_text(font, "· AUTOPLAY ·", 0, int(h * 0.85), w, int(h * 0.020), GOAL)
+		VectorDraw.text(self, font, "· AUTOPLAY ·", 0, int(h * 0.85), w, int(h * 0.020), GOAL)
 
 	# Splash flash tint.
 	if _splash_flash > 0.0:
 		var tint := RED
 		tint.a = 0.35 * (_splash_flash / 0.4)
 		draw_rect(Rect2(-40, -40, w + 80, h + 80), tint)
-		_text(font, "SPLASH!", 0, int(h * 0.44), w, int(h * 0.045), NEEDLE)
+		VectorDraw.text(self, font, "SPLASH!", 0, int(h * 0.44), w, int(h * 0.045), NEEDLE)
 
 	# Knock resolution banner (brief).
 	if _knock_flash > 0.0:
@@ -453,7 +453,7 @@ func _draw() -> void:
 		kt.a = 0.22 * (_knock_flash / 0.8)
 		draw_rect(Rect2(-40, -40, w + 80, h + 80), kt)
 		var ktxt := "STAYED QUIET" if _knock_flash_good else "THEY HEARD YOU!"
-		_text(font, ktxt, 0, int(h * 0.40), w, int(h * 0.040), kcol)
+		VectorDraw.text(self, font, ktxt, 0, int(h * 0.40), w, int(h * 0.040), kcol)
 
 	_draw_overlay(font, w, h)
 
@@ -462,7 +462,7 @@ func _draw() -> void:
 ## Oversized on every side so the splash/jolt shake can never reveal an edge.
 func _draw_backdrop(w: float, h: float) -> void:
 	var full := Rect2(-40, -40, w + 80, h + 80)
-	_vgrad(full, BG.lightened(0.07), BG.darkened(0.30))
+	VectorDraw.vgrad(self, full, BG.lightened(0.07), BG.darkened(0.30))
 
 	_draw_room(w, h)
 
@@ -538,10 +538,10 @@ func _draw_sitter(w: float, h: float) -> void:
 	# positioned independently and the tank floated with a screen-height's worth
 	# of nothing between them. It runs behind his torso, which is where the back
 	# of a toilet actually is, and overlaps the bowl's top edge so they join. ---
-	_rrect(Rect2(cx - w * 0.100, h * 0.310, w * 0.20, h * 0.195), cera_sh, 6, ink, int(iw))
-	_rrect(Rect2(cx - w * 0.135, h * 0.203, w * 0.27, h * 0.125), cera, 8, ink, int(iw))
-	_rrect(Rect2(cx - w * 0.122, h * 0.286, w * 0.244, h * 0.034), cera_sh, 5)
-	_rrect(Rect2(cx - w * 0.100, h * 0.222, w * 0.075, h * 0.018), cera_sh, 4)  # the flush plate
+	VectorDraw.rrect(self, Rect2(cx - w * 0.100, h * 0.310, w * 0.20, h * 0.195), cera_sh, 6, ink, int(iw))
+	VectorDraw.rrect(self, Rect2(cx - w * 0.135, h * 0.203, w * 0.27, h * 0.125), cera, 8, ink, int(iw))
+	VectorDraw.rrect(self, Rect2(cx - w * 0.122, h * 0.286, w * 0.244, h * 0.034), cera_sh, 5)
+	VectorDraw.rrect(self, Rect2(cx - w * 0.100, h * 0.222, w * 0.075, h * 0.018), cera_sh, 4)  # the flush plate
 
 	# --- the man ---
 	# The slump drops the head furthest, the shoulders less, the hips not at all,
@@ -565,7 +565,7 @@ func _draw_sitter(w: float, h: float) -> void:
 		[shoulder_l, elbow_l, w * 0.032], [shoulder_r, elbow_r, w * 0.032],
 		[head, head, w * 0.070],
 	]
-	_shade_limbs(limbs, ink, figure, figure_sh, iw)
+	VectorDraw.shade_limbs(self, limbs, ink, figure, figure_sh, iw)
 
 
 ## Knees and forearms, drawn AFTER the bowl so they come back over its front rim.
@@ -595,7 +595,7 @@ func _draw_sitter_legs(w: float, h: float) -> void:
 	var limbs := [
 		[elbow_l, hand_l, w * 0.028], [elbow_r, hand_r, w * 0.028],
 	]
-	_shade_limbs(limbs, ink, figure, PANEL.darkened(0.10), iw)
+	VectorDraw.shade_limbs(self, limbs, ink, figure, PANEL.darkened(0.10), iw)
 
 
 func _scene_cx(w: float) -> float:
@@ -629,13 +629,13 @@ func _draw_bowl(w: float, h: float) -> void:
 	var cav := _bowl_cavity(w, h)
 
 	# Tight at the rim, deeply round at the base — a basin, not a bucket.
-	_rrect_c(outer, cera, int(w * 0.045), int(w * 0.045), int(w * 0.20), int(w * 0.20),
+	VectorDraw.rrect_corners(self, outer, cera, int(w * 0.045), int(w * 0.045), int(w * 0.20), int(w * 0.20),
 			ink, int(iw))
 	# The rim, as its own darker ring (§5: flat, 2-tone — no gradient).
-	_rrect(Rect2(outer.position.x + w * 0.018, outer.position.y + h * 0.008,
+	VectorDraw.rrect(self, Rect2(outer.position.x + w * 0.018, outer.position.y + h * 0.008,
 			outer.size.x - w * 0.036, h * 0.020), cera_sh, int(h * 0.010))
 	# The cavity: a hole, not a surface. Everything below is inside the bowl.
-	_rrect_c(cav, PANEL.darkened(0.52), int(w * 0.030), int(w * 0.030),
+	VectorDraw.rrect_corners(self, cav, PANEL.darkened(0.52), int(w * 0.030), int(w * 0.030),
 			int(w * 0.17), int(w * 0.17))
 
 	# Water first, so anything that lands displaces it visually. It goes off as
@@ -644,7 +644,7 @@ func _draw_bowl(w: float, h: float) -> void:
 	var foul := clampf(_state.relief / 100.0, 0.0, 1.0)
 	var water := Rect2(cav.position.x + w * 0.012, cav.end.y - h * 0.052,
 			cav.size.x - w * 0.024, h * 0.044)
-	_rrect(water, WATER.lerp(MATTER_DARK, 0.75 * foul), int(h * 0.018))
+	VectorDraw.rrect(self, water, WATER.lerp(MATTER_DARK, 0.75 * foul), int(h * 0.018))
 
 	_draw_streaks(cav)
 	_draw_pile(cav)
@@ -666,9 +666,9 @@ func _draw_bowl(w: float, h: float) -> void:
 	var line_y := cav.end.y - cav.size.y * _level.goal_height
 	var glow := GOAL
 	glow.a = 0.20
-	_rrect(Rect2(cav.position.x - w * 0.012, line_y - h * 0.008,
+	VectorDraw.rrect(self, Rect2(cav.position.x - w * 0.012, line_y - h * 0.008,
 			cav.size.x + w * 0.024, h * 0.014), glow, 6)
-	_rrect(Rect2(cav.position.x - w * 0.006, line_y - h * 0.004,
+	VectorDraw.rrect(self, Rect2(cav.position.x - w * 0.006, line_y - h * 0.004,
 			cav.size.x + w * 0.012, h * 0.006), GOAL, 3)
 
 
@@ -683,8 +683,8 @@ func _draw_streaks(cav: Rect2) -> void:
 		var sy: float = cav.position.y + cav.size.y * (0.04 + 0.30 * _lump(i, 103))
 		var run: float = cav.size.y * (0.10 + 0.30 * _lump(i, 107))
 		var rad: float = cav.size.x * (0.010 + 0.016 * _lump(i, 109))
-		_limb(Vector2(sx, sy), Vector2(sx, sy + run), rad, MATTER_DARK)
-		_limb(Vector2(sx, sy), Vector2(sx, sy + run * 0.55), rad * 0.45,
+		VectorDraw.limb(self, Vector2(sx, sy), Vector2(sx, sy + run), rad, MATTER_DARK)
+		VectorDraw.limb(self, Vector2(sx, sy), Vector2(sx, sy + run * 0.55), rad * 0.45,
 				MATTER_DARK.lerp(MATTER, 0.45))
 
 
@@ -788,7 +788,7 @@ func _draw_pile(cav: Rect2) -> void:
 			continue
 		var p := Vector2(xs[s], ys[s] + lift * 0.45)
 		var run := cav.size.x / float(samples) * (0.7 + 0.9 * _lump(s, 411))
-		_limb(p - Vector2(run, 0.0), p + Vector2(run * 0.6, 0.0),
+		VectorDraw.limb(self, p - Vector2(run, 0.0), p + Vector2(run * 0.6, 0.0),
 				maxf(1.0, lift * 0.22), Palette.MATTER_LIT)
 
 
@@ -843,9 +843,9 @@ func _draw_stream(h: float, cav: Rect2) -> void:
 		var f := float(s) / float(segs)
 		var pt := Vector2(x + sin(_t * speed + f * 5.5) * wave * f, lerpf(top, land, f))
 		# Tapers slightly toward the landing — it's stretching as it falls.
-		_limb(prev, pt, wid * (1.0 - 0.18 * f), MATTER)
+		VectorDraw.limb(self, prev, pt, wid * (1.0 - 0.18 * f), MATTER)
 		prev = pt
-	_limb(Vector2(x, top), Vector2(x, top + (land - top) * 0.55), wid * 0.30,
+	VectorDraw.limb(self, Vector2(x, top), Vector2(x, top + (land - top) * 0.55), wid * 0.30,
 			Palette.MATTER_LIT)
 
 	# Where it lands. Runny spreads on impact; solid just plops.
@@ -853,7 +853,7 @@ func _draw_stream(h: float, cav: Rect2) -> void:
 	draw_circle(prev, splat, MATTER)
 	if thick < 0.5:
 		var spread := splat * (1.0 + 1.4 * (0.5 - thick))
-		_limb(prev - Vector2(spread, 0.0), prev + Vector2(spread, 0.0),
+		VectorDraw.limb(self, prev - Vector2(spread, 0.0), prev + Vector2(spread, 0.0),
 				maxf(1.0, wid * 0.35), MATTER)
 
 
@@ -909,45 +909,12 @@ func _draw_stink(w: float, h: float) -> void:
 		draw_polyline_colors(pts, cols, maxf(2.0, w * 0.006), true)
 
 
-## Ink, shadow, then lit core — the three passes that turn a list of limbs into
-## one cel-shaded silhouette. Every outline is laid down before any fill so he
-## reads as a single shape rather than a stack of separately-inked tubes.
-##
-## The shadow is the §5 "one shadow tone", applied as a RIM: the whole figure is
-## painted in the shadow tone, then the lit colour goes back on top, shrunk and
-## shifted up-and-right. It used to be a couple of hand-placed blobs offset
-## inside the torso and head, which on a narrow torso covered half of it and read
-## as a stripe down his front rather than as light coming from anywhere.
-##
-## The shrink and the offset are both proportional to each limb's own radius. A
-## fixed offset works on the torso and pushes the lit core straight out through
-## the outline on something as thin as a forearm.
-func _shade_limbs(limbs: Array, ink: Color, lit: Color, shadow: Color, iw: float) -> void:
-	for limb in limbs:
-		_limb(limb[0], limb[1], limb[2] + iw, ink)
-	for limb in limbs:
-		_limb(limb[0], limb[1], limb[2], shadow)
-	for limb in limbs:
-		var r: float = limb[2]
-		var off := Vector2(r * 0.14, -r * 0.10)
-		_limb(limb[0] + off, limb[1] + off, r * 0.80, lit)
-
-
-## One round-capped bar. draw_line has no round caps, so each end gets a circle.
-## Passing the same point twice draws a plain disc — that is how the head is done.
-func _limb(a: Vector2, b: Vector2, r: float, col: Color) -> void:
-	if a != b:
-		draw_line(a, b, col, r * 2.0)
-	draw_circle(a, r, col)
-	draw_circle(b, r, col)
-
-
 func _draw_meters_top(font: Font, w: float, h: float) -> void:
 	var mx := w * 0.06
 	var mw := w * 0.88
 
 	# Composure — the master clock, full-width up top.
-	_text(font, "COMPOSURE", mx, int(h * 0.072), mw, int(h * 0.016), TEXT_DIM)
+	VectorDraw.text(self, font, "COMPOSURE", mx, int(h * 0.072), mw, int(h * 0.016), TEXT_DIM)
 	var cy := h * 0.082
 	var ch := h * 0.024
 	_track(Rect2(mx, cy, mw, ch), _state.composure / 100.0, _meter_color(_state.composure))
@@ -961,7 +928,7 @@ func _draw_meters_top(font: Font, w: float, h: float) -> void:
 
 
 func _pill(font: Font, label: String, value: float, x: float, y: float, pw: float, ph: float, fs: int) -> void:
-	_text(font, "%s  %d" % [label, int(round(value))], x, int(y - h_gap()), pw, fs, TEXT_DIM)
+	VectorDraw.text(self, font, "%s  %d" % [label, int(round(value))], x, int(y - h_gap()), pw, fs, TEXT_DIM)
 	_track(Rect2(x, y, pw, ph), value / 100.0, _meter_color(value))
 
 
@@ -974,13 +941,13 @@ func _pill(font: Font, label: String, value: float, x: float, y: float, pw: floa
 ## app widget rather than the earnest instrument register B is meant to be.
 ## Rounding stays — §5 sets a corner scale and puts meters at height/2.
 func _track(rect: Rect2, frac: float, col: Color) -> void:
-	_rrect(rect, PANEL.darkened(0.22), int(rect.size.y * 0.5), Palette.BORDER, 2)
+	VectorDraw.rrect(self, rect, PANEL.darkened(0.22), int(rect.size.y * 0.5), Palette.BORDER, 2)
 	var pad := 2.5
 	var fw := (rect.size.x - pad * 2.0) * clampf(frac, 0.0, 1.0)
 	if fw <= 1.0:
 		return
 	var fill := Rect2(rect.position.x + pad, rect.position.y + pad, fw, rect.size.y - pad * 2.0)
-	_rrect(fill, col, int(fill.size.y * 0.5))
+	VectorDraw.rrect(self, fill, col, int(fill.size.y * 0.5))
 
 
 func h_gap() -> float:
@@ -1062,8 +1029,8 @@ func _draw_quiet_status(font: Font, w: float, h: float) -> void:
 	var bh := h * 0.032
 	var bar := col
 	bar.a = 0.92
-	_rrect(Rect2(w * 0.06, by, w * 0.88, bh), bar, int(bh * 0.34))
-	_text(font, label, 0, int(by + bh * 0.70), w, int(h * 0.020), Color(0.08, 0.07, 0.05))
+	VectorDraw.rrect(self, Rect2(w * 0.06, by, w * 0.88, bh), bar, int(bh * 0.34))
+	VectorDraw.text(self, font, label, 0, int(by + bh * 0.70), w, int(h * 0.020), Color(0.08, 0.07, 0.05))
 
 
 ## THE PUSH now hugs the left edge: the bowl and the man own the rest of the
@@ -1079,8 +1046,8 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 
 	# Housing, then the recessed track. The track's own colour IS the dead zone;
 	# the flow and red bands float on top of it.
-	_rrect(Rect2(gx - 8, gy - 8, gw + 16, gh + 16), PANEL, 16, Palette.BORDER, 2)
-	_rrect(Rect2(gx, gy, gw, gh), DEAD, 10)
+	VectorDraw.rrect(self, Rect2(gx - 8, gy - 8, gw + 16, gh + 16), PANEL, 16, Palette.BORDER, 2)
+	VectorDraw.rrect(self, Rect2(gx, gy, gw, gh), DEAD, 10)
 
 	# Flat bands. They were gradient-and-gloss "raised surfaces"; §5 says that
 	# treatment is juice, not structure, and the zones are pure structure.
@@ -1088,9 +1055,9 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 	for band in _state.flow_bands:
 		highest = maxf(highest, band.y)
 		var inside: bool = _state.needle >= band.x and _state.needle <= band.y
-		_band(gx, gw, gbot, gh, band.x, band.y,
+		VectorDraw.band(self, gx, gw, gbot, gh, band.x, band.y,
 				FLOW if (zone == PushSim.ZONE_FLOW and inside) else FLOW_DIM)
-	_band(gx, gw, gbot, gh, highest, 1.0, RED if zone == PushSim.ZONE_RED else RED_DIM)
+	VectorDraw.band(self, gx, gw, gbot, gh, highest, 1.0, RED if zone == PushSim.ZONE_RED else RED_DIM)
 
 	# In-flow glow — a soft reward for good placement.
 	if zone == PushSim.ZONE_FLOW:
@@ -1101,10 +1068,10 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 				# tight-brighter pass fakes the falloff.
 				var outer := FLOW
 				outer.a = (0.10 + 0.09 * pulse)
-				_band(gx - 6, gw + 12, gbot, gh, band.x - 0.014, band.y + 0.014, outer, 14)
+				VectorDraw.band(self, gx - 6, gw + 12, gbot, gh, band.x - 0.014, band.y + 0.014, outer, 14)
 				var inner := FLOW
 				inner.a = (0.14 + 0.12 * pulse)
-				_band(gx - 3, gw + 6, gbot, gh, band.x - 0.006, band.y + 0.006, inner, 11)
+				VectorDraw.band(self, gx - 3, gw + 6, gbot, gh, band.x - 0.006, band.y + 0.006, inner, 11)
 
 	# Needle — the one pure-white mark on the screen, haloed in its zone colour.
 	var ny := gbot - _state.needle * gh
@@ -1120,13 +1087,13 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 		halo.a = halo_peak * (1.0 - f * 0.70)
 		var hh := 32.0 - f * 15.0
 		var spread := 12.0 - f * 9.0
-		_rrect(Rect2(gx - spread, ny - hh * 0.5, gw + spread * 2.0, hh), halo, int(hh * 0.5))
+		VectorDraw.rrect(self, Rect2(gx - spread, ny - hh * 0.5, gw + spread * 2.0, hh), halo, int(hh * 0.5))
 
 	# Flat white bar and a capped tip. The halo above stays — a glow around the
 	# needle is exactly the "juice" §5 permits; the highlight line that used to
 	# run along the bar was emboss, and went.
 	var body := Rect2(gx - 4.0, ny - 8.0, gw + 8.0, 16.0)
-	_rrect(body, NEEDLE, 8)
+	VectorDraw.rrect(self, body, NEEDLE, 8)
 	var tip := Vector2(gx + gw - 8.0, ny)
 	draw_circle(tip, 11.0, NEEDLE)
 	draw_arc(tip, 11.0, 0.0, TAU, 28, zcol, 2.5, true)
@@ -1137,14 +1104,14 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 		var y_cap := gbot - _level.silence_push_cap * gh
 		var warn := RED
 		warn.a = 0.14
-		_rrect(Rect2(gx, gy, gw, y_cap - gy), warn, 10)
+		VectorDraw.rrect(self, Rect2(gx, gy, gw, y_cap - gy), warn, 10)
 		draw_line(Vector2(gx, y_cap), Vector2(gx + gw, y_cap), RED, 2.0)
 
 	# During a Knock freeze, frost the gauge and flip the demand to RELEASE (UI spec).
 	if Hazards.relief_stalled(_state):
-		_rrect(Rect2(gx - 8, gy - 8, gw + 16, gh + 16), Color(0.55, 0.78, 0.98, 0.16), 16)
+		VectorDraw.rrect(self, Rect2(gx - 8, gy - 8, gw + 16, gh + 16), Color(0.55, 0.78, 0.98, 0.16), 16)
 
-	_text(font, "THE PUSH", gx - 8, int(gy - h * 0.018), gw + 16, int(h * 0.016), TEXT_DIM)
+	VectorDraw.text(self, font, "THE PUSH", gx - 8, int(gy - h * 0.018), gw + 16, int(h * 0.016), TEXT_DIM)
 	# The zone name is a claim about what is happening RIGHT NOW, so it goes quiet
 	# once the run is over — a frozen gauge still reading "FLOW" under the results
 	# scrim says the run is live when it isn't. The gauge itself stays, as a
@@ -1159,7 +1126,7 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 	# The zone name gets a WIDER region than the gauge itself. At this column
 	# width "DEAD ZONE" clips to "DEAD Z"; the strip to the gauge's right is empty
 	# down here, so the label can centre on the gauge and overhang it.
-	_text(font, zname, 0, int(gbot + h * 0.04), w * 0.26, int(h * 0.024), zlabel_col)
+	VectorDraw.text(self, font, zname, 0, int(gbot + h * 0.04), w * 0.26, int(h * 0.024), zlabel_col)
 
 
 ## Relief lost its abstract green tube — the bowl IS the meter now, so all that's
@@ -1185,7 +1152,7 @@ func _draw_relief_readout(font: Font, w: float, h: float) -> void:
 	var word := _readout_consistency()
 	if not word.is_empty():
 		line += "   ·   " + word
-	_text(font, line, cav.position.x - pad * 0.5, int(h * 0.727), cav.size.x + pad,
+	VectorDraw.text(self, font, line, cav.position.x - pad * 0.5, int(h * 0.727), cav.size.x + pad,
 			int(h * 0.024), TEXT)
 
 
@@ -1241,8 +1208,8 @@ func _draw_prompt(font: Font, w: float, h: float) -> void:
 		return
 	var by := h * 0.74
 	var bh := h * 0.05
-	_rrect(Rect2(w * 0.10, by, w * 0.80, bh), col, int(bh * 0.30))
-	_text(font, text, 0, int(by + bh * 0.66), w, int(h * 0.026), Color(0.1, 0.08, 0.05))
+	VectorDraw.rrect(self, Rect2(w * 0.10, by, w * 0.80, bh), col, int(bh * 0.30))
+	VectorDraw.text(self, font, text, 0, int(by + bh * 0.66), w, int(h * 0.026), Color(0.1, 0.08, 0.05))
 
 
 ## A live hazard owns the prompt band. The Knock wins ties — it takes your input
@@ -1315,16 +1282,16 @@ func _draw_overlay(font: Font, w: float, h: float) -> void:
 		# the dimming. The text lands over him and still reads: he is a flat dark
 		# silhouette, which is exactly what text wants behind it.
 		_draw_sitter(w, h)
-		_text(font, "COULDN'T HOLD IT", 0, int(h * 0.40), w, int(h * 0.050), RED)
-		_text(font, "Composure ran out.", 0, int(h * 0.47), w, int(h * 0.026), TEXT)
+		VectorDraw.text(self, font, "COULDN'T HOLD IT", 0, int(h * 0.40), w, int(h * 0.050), RED)
+		VectorDraw.text(self, font, "Composure ran out.", 0, int(h * 0.47), w, int(h * 0.026), TEXT)
 		# Below his feet, not across his head — the slump is the picture here.
-		_text(font, "tap  ·  press R to retry", 0, int(h * 0.76), w, int(h * 0.024), TEXT_DIM)
+		VectorDraw.text(self, font, "tap  ·  press R to retry", 0, int(h * 0.76), w, int(h * 0.024), TEXT_DIM)
 		return
 
 	# WON — score from the four meters.
 	var result := Scoring.evaluate(_state, _level)
 	_draw_stars(w * 0.5, h * 0.28, int(result.stars))
-	_text(font, _rank_title(result), 0, int(h * 0.36), w, int(h * 0.040), GOAL)
+	VectorDraw.text(self, font, _rank_title(result), 0, int(h * 0.36), w, int(h * 0.040), GOAL)
 
 	var bd: Dictionary = result["breakdown"]
 	var y := 0.44
@@ -1334,13 +1301,13 @@ func _draw_overlay(font: Font, w: float, h: float) -> void:
 	_score_line(font, w, h, y, "Cleanliness", int(bd["cleanliness"])); y += 0.045
 	_score_line(font, w, h, y, "Flow", int(bd["flow"])); y += 0.045
 	_score_line(font, w, h, y, "Speed", int(bd["speed"])); y += 0.055
-	_text(font, "SCORE  %d" % int(result["base"]), 0, int(h * y), w, int(h * 0.034), TEXT)
-	_text(font, "tap  ·  press R to retry", 0, int(h * (y + 0.06)), w, int(h * 0.024), TEXT_DIM)
+	VectorDraw.text(self, font, "SCORE  %d" % int(result["base"]), 0, int(h * y), w, int(h * 0.034), TEXT)
+	VectorDraw.text(self, font, "tap  ·  press R to retry", 0, int(h * (y + 0.06)), w, int(h * 0.024), TEXT_DIM)
 
 
 func _score_line(font: Font, w: float, h: float, y: float, label: String, pts: int) -> void:
-	_text(font, "%s" % label, w * 0.16, int(h * y), w * 0.40, int(h * 0.024), TEXT_DIM)
-	_text(font, "%d" % pts, w * 0.56, int(h * y), w * 0.24, int(h * 0.024), TEXT)
+	VectorDraw.text(self, font, "%s" % label, w * 0.16, int(h * y), w * 0.40, int(h * 0.024), TEXT_DIM)
+	VectorDraw.text(self, font, "%d" % pts, w * 0.56, int(h * y), w * 0.24, int(h * 0.024), TEXT)
 
 
 func _draw_stars(cx: float, cy: float, stars: int) -> void:
@@ -1348,7 +1315,7 @@ func _draw_stars(cx: float, cy: float, stars: int) -> void:
 	var gap := r * 2.6
 	for i in 3:
 		var c := Vector2(cx + (float(i) - 1.0) * gap, cy)
-		_draw_star(c, r, GOAL if i < stars else TEXT_DIM, i < stars)
+		VectorDraw.star(self, c, r, GOAL if i < stars else TEXT_DIM, i < stars)
 
 
 func _rank_title(result: Dictionary) -> String:
@@ -1361,87 +1328,12 @@ func _rank_title(result: Dictionary) -> String:
 			return "PUBLICLY HUMILIATED" if not bool(result.never_detected) else "BY A HAIR"
 
 
-# ----------------------------------------------------------- draw primitives
+# The drawing primitives moved to VectorDraw (scripts/ui/vector_draw.gd) — they
+# are the idiom the whole game paints in, not this screen's business.
 #
-# _draw() has no blur, no gradients and no rounded shapes of its own, so the
-# vector look is built from three things: StyleBoxFlat for rounded rects,
-# per-vertex polygon colours for gradients, and stacked translucent passes for
-# anything that wants to glow.
-
-## A rounded rect. Deliberately allocates a FRESH StyleBoxFlat every call —
-## draw commands can resolve a style box after _draw() returns, so reusing and
-## mutating one would repaint every earlier rect with the last colour set.
-func _rrect(rect: Rect2, col: Color, radius: int,
-		border_col: Color = Color(0, 0, 0, 0), border_w: int = 0) -> void:
-	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
-		return
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = col
-	sb.set_corner_radius_all(radius)
-	if border_w > 0:
-		sb.border_color = border_col
-		sb.set_border_width_all(border_w)
-	draw_style_box(sb, rect)
-
-
-## Like _rrect, but with per-corner radii. The bowl needs a tight top and a deep
-## round bottom to read as a basin instead of a bucket, and a single radius can't
-## say that.
-## (Spelled out rather than tl/tr/br/bl — "tr" shadows Object.tr().)
-func _rrect_c(rect: Rect2, col: Color, top_l: int, top_r: int, bot_r: int, bot_l: int,
-		border_col: Color = Color(0, 0, 0, 0), border_w: int = 0) -> void:
-	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
-		return
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = col
-	# Set per corner: StyleBoxFlat has set_corner_radius_all() but no
-	# set_corner_radius_individual() — the individual radii are plain properties.
-	sb.corner_radius_top_left = top_l
-	sb.corner_radius_top_right = top_r
-	sb.corner_radius_bottom_right = bot_r
-	sb.corner_radius_bottom_left = bot_l
-	if border_w > 0:
-		sb.border_color = border_col
-		sb.set_border_width_all(border_w)
-	draw_style_box(sb, rect)
-
-
-## A vertical two-stop gradient, as a quad with per-vertex colours. Its corners
-## are SHARP — inset it inside a rounded housing rather than using it as the
-## outer shape of anything.
-func _vgrad(rect: Rect2, top: Color, bottom: Color) -> void:
-	if rect.size.x <= 0.0 or rect.size.y <= 0.0:
-		return
-	var pts := PackedVector2Array([
-		rect.position,
-		Vector2(rect.end.x, rect.position.y),
-		rect.end,
-		Vector2(rect.position.x, rect.end.y),
-	])
-	draw_polygon(pts, PackedColorArray([top, top, bottom, bottom]))
-
-
-## One horizontal slice of the gauge track, in needle-space (0..1).
-func _band(x: float, bw: float, bottom: float, gh: float, n_lo: float, n_hi: float,
-		col: Color, radius: int = 8) -> void:
-	var y_hi := bottom - n_hi * gh
-	var y_lo := bottom - n_lo * gh
-	_rrect(Rect2(x, y_hi, bw, y_lo - y_hi), col, radius)
-
-
-func _draw_star(center: Vector2, radius: float, col: Color, filled: bool) -> void:
-	var pts := PackedVector2Array()
-	var inner := radius * 0.45
-	for i in 10:
-		var ang := -PI / 2.0 + float(i) * PI / 5.0
-		var rr := radius if i % 2 == 0 else inner
-		pts.append(center + Vector2(cos(ang), sin(ang)) * rr)
-	if filled:
-		draw_colored_polygon(pts, col)
-	else:
-		pts.append(pts[0])
-		draw_polyline(pts, col, 2.0)
-
+# The meter ramp stays: it isn't a primitive, it's the state language from the
+# style guide (red below half, through amber, to green) and it means nothing
+# outside a meter.
 
 func _meter_color(v: float) -> Color:
 	var f := clampf(v / 100.0, 0.0, 1.0)
@@ -1450,5 +1342,3 @@ func _meter_color(v: float) -> Color:
 	return AMBER.lerp(FLOW, (f - 0.5) / 0.5)
 
 
-func _text(font: Font, s: String, x: float, baseline: int, region_w: float, fs: int, col: Color) -> void:
-	draw_string(font, Vector2(x, baseline), s, HORIZONTAL_ALIGNMENT_CENTER, region_w, fs, col)
