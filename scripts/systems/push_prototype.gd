@@ -97,16 +97,10 @@ var _auto_swipe: Vector2 = Vector2.ZERO
 var _auto_tap: bool = false
 var _auto_player: AutoPlayer = null
 
-# --- View-only feedback (never feeds back into the sim) ---
-var _t: float = 0.0
-var _splash_flash: float = 0.0
-var _last_splash_pulse: int = 0
-var _milestone_flash: float = 0.0
-var _next_milestone: int = 25
-var _shake: Vector2 = Vector2.ZERO
-var _last_hazard_pulse: int = 0
-var _knock_flash: float = 0.0
-var _knock_flash_good: bool = false
+## View-only feedback — flashes, shake, the view clock. Never feeds back into the
+## sim; see SitFrame, which owns both the values and the edge detection that
+## derives them from the model.
+var _frame := SitFrame.new()
 
 # --- Overlays (pure view; the sim pauses while either is open) ---
 var _manual: ManualOverlay
@@ -229,16 +223,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		_mouse_down = event.pressed
 		if event.pressed:
-			_press_started = _t
-		elif _t - _press_started <= TAP_MAX_SECONDS:
+			_press_started = _frame.t
+		elif _frame.t - _press_started <= TAP_MAX_SECONDS:
 			_tap_queued = true
 	elif event is InputEventScreenTouch:
 		if event.pressed:
 			_touches[event.index] = true
-			_press_started = _t
+			_press_started = _frame.t
 		else:
 			_touches.erase(event.index)
-			if _t - _press_started <= TAP_MAX_SECONDS:
+			if _frame.t - _press_started <= TAP_MAX_SECONDS:
 				_tap_queued = true
 	elif event is InputEventScreenDrag:
 		_swipe_queued += event.relative
@@ -268,7 +262,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
-	_t += delta
+	# The view clock runs even while paused: the input layer times taps against it,
+	# and freezing it would make a press that spans a menu read as a tap.
+	_frame.t += delta
+
 	# An open overlay pauses the sitting — no clock drain, no hazards advancing.
 	# (_accum only grows inside _advance_sim, so time can't pile up while paused.)
 	#
@@ -284,38 +281,9 @@ func _process(delta: float) -> void:
 		return
 	_advance_sim(delta)
 
-	# View feedback, driven by (never driving) the model.
-	if _state.splash_pulse != _last_splash_pulse:
-		_last_splash_pulse = _state.splash_pulse
-		_splash_flash = 0.4
-	while _state.progress >= float(_next_milestone) and _next_milestone < 100:
-		_milestone_flash = 0.5
-		_next_milestone += 25
-
-	# The pile used to be sampled here, one layer per 3.3% of Relief. It is now
-	# simulated — PushSim deposits and settles a heightfield every fixed step —
-	# so there is nothing for the view to record. _draw() reads state.bowl.
-
-	_splash_flash = maxf(0.0, _splash_flash - delta)
-	_milestone_flash = maxf(0.0, _milestone_flash - delta)
-	var shake_mag := 0.0
-	if _splash_flash > 0.0:
-		shake_mag = 7.0 * (_splash_flash / 0.4)
-	# Turbulence keeps rattling the whole time it's on you.
-	var jolt := Hazards.find(_state, SimEvent.Kind.JOLT)
-	if jolt != null and jolt.phase == HazardSlot.Phase.ACTIVE:
-		shake_mag = maxf(shake_mag, 5.0)
-	if shake_mag > 0.0:
-		_shake = Vector2(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)) * shake_mag
-	else:
-		_shake = Vector2.ZERO
-
-	# Hazard resolution feedback — edge-detected off the model, purely visual.
-	if _state.hazard_resolve_pulse != _last_hazard_pulse:
-		_last_hazard_pulse = _state.hazard_resolve_pulse
-		_knock_flash = 0.8
-		_knock_flash_good = not _state.last_hazard_failed
-	_knock_flash = maxf(0.0, _knock_flash - delta)
+	# View feedback, driven by (never driving) the model. AFTER the step, so the
+	# flashes are edge-detected against the state about to be drawn.
+	_frame.advance(_state, delta, _holding_now())
 
 	queue_redraw()
 
@@ -392,13 +360,7 @@ func _reset() -> void:
 	_scheduler.load_timeline(_level.timeline)
 
 	_accum = 0.0
-	_splash_flash = 0.0
-	_last_splash_pulse = 0
-	_milestone_flash = 0.0
-	_next_milestone = 25
-	_shake = Vector2.ZERO
-	_last_hazard_pulse = 0
-	_knock_flash = 0.0
+	_frame.reset()
 
 
 # ------------------------------------------------------------------ rendering
@@ -408,7 +370,7 @@ func _draw() -> void:
 	var w := vp.x
 	var h := vp.y
 	var font := ThemeDB.fallback_font
-	draw_set_transform(_shake, 0.0, Vector2.ONE)
+	draw_set_transform(_frame.shake, 0.0, Vector2.ONE)
 
 	# The scene, back to front: he sits behind the bowl, the bowl occludes his
 	# lap so you can see into it, then his knees and hands come back over the
@@ -440,19 +402,19 @@ func _draw() -> void:
 		VectorDraw.text(self, font, "· AUTOPLAY ·", 0, int(h * 0.85), w, int(h * 0.020), GOAL)
 
 	# Splash flash tint.
-	if _splash_flash > 0.0:
+	if _frame.splash_flash > 0.0:
 		var tint := RED
-		tint.a = 0.35 * (_splash_flash / 0.4)
+		tint.a = 0.35 * (_frame.splash_flash / 0.4)
 		draw_rect(Rect2(-40, -40, w + 80, h + 80), tint)
 		VectorDraw.text(self, font, "SPLASH!", 0, int(h * 0.44), w, int(h * 0.045), NEEDLE)
 
 	# Knock resolution banner (brief).
-	if _knock_flash > 0.0:
-		var kcol := FLOW if _knock_flash_good else RED
+	if _frame.knock_flash > 0.0:
+		var kcol := FLOW if _frame.knock_flash_good else RED
 		var kt := kcol
-		kt.a = 0.22 * (_knock_flash / 0.8)
+		kt.a = 0.22 * (_frame.knock_flash / 0.8)
 		draw_rect(Rect2(-40, -40, w + 80, h + 80), kt)
-		var ktxt := "STAYED QUIET" if _knock_flash_good else "THEY HEARD YOU!"
+		var ktxt := "STAYED QUIET" if _frame.knock_flash_good else "THEY HEARD YOU!"
 		VectorDraw.text(self, font, ktxt, 0, int(h * 0.40), w, int(h * 0.040), kcol)
 
 	_draw_overlay(font, w, h)
@@ -529,7 +491,7 @@ func _draw_sitter(w: float, h: float) -> void:
 	# Three poses, all view-only — read off the input buffer and the phase, never
 	# fed back into the sim. Idle breathes; pushing hunches; losing slumps.
 	var lost: bool = _state != null and _state.phase == SimState.Phase.LOST
-	var bob := sin(_t * (0.9 if lost else 2.2)) * h * (0.002 if lost else 0.004)
+	var bob := sin(_frame.t * (0.9 if lost else 2.2)) * h * (0.002 if lost else 0.004)
 	var strain := h * 0.022 if (_holding_now() and not lost) else 0.0
 	var slump := h * 0.030 if lost else 0.0
 
@@ -652,8 +614,8 @@ func _draw_bowl(w: float, h: float) -> void:
 
 	# Splatter. The red zone costs Cleanliness, which the streaks above record
 	# permanently; this is the moment it happens, thrown up onto the rim.
-	if _splash_flash > 0.0:
-		var spread := _splash_flash / 0.4
+	if _frame.splash_flash > 0.0:
+		var spread := _frame.splash_flash / 0.4
 		for i in 9:
 			var fx: float = outer.position.x + outer.size.x * (0.10 + 0.80 * _lump(i, 211))
 			var fy: float = cav.position.y - h * 0.004 * _lump(i, 213) \
@@ -723,7 +685,7 @@ func _draw_pile(cav: Rect2) -> void:
 	if _state.bowl_peak() * cav.size.y < 1.5:
 		return
 	var samples := cols * PILE_SUBDIV
-	var flash := _milestone_flash > 0.0
+	var flash := _frame.milestone_flash > 0.0
 
 	# The crest, left to right. Roughness scales with thickness (a pool is
 	# smooth, a solid mass is lumpy) and fades out where the pile is thin, so
@@ -743,7 +705,7 @@ func _draw_pile(cav: Rect2) -> void:
 	var body := MATTER_DARK
 	var crust := MATTER
 	if flash:
-		var k := 0.30 * (_milestone_flash / 0.5)
+		var k := 0.30 * (_frame.milestone_flash / 0.5)
 		body = body.lerp(NEEDLE, k)
 		crust = crust.lerp(NEEDLE, k)
 
@@ -841,7 +803,7 @@ func _draw_stream(h: float, cav: Rect2) -> void:
 	var prev := Vector2(x, top)
 	for s in range(1, segs + 1):
 		var f := float(s) / float(segs)
-		var pt := Vector2(x + sin(_t * speed + f * 5.5) * wave * f, lerpf(top, land, f))
+		var pt := Vector2(x + sin(_frame.t * speed + f * 5.5) * wave * f, lerpf(top, land, f))
 		# Tapers slightly toward the landing — it's stretching as it falls.
 		VectorDraw.limb(self, prev, pt, wid * (1.0 - 0.18 * f), MATTER)
 		prev = pt
@@ -900,7 +862,7 @@ func _draw_stink(w: float, h: float) -> void:
 			var f := float(k) / float(steps)
 			# The wobble is scaled by f so the line stays anchored at the base
 			# and only writhes as it rises.
-			var wobble := sin(f * TAU * 1.5 + _t * speed + float(i) * 2.1) * w * 0.020 * f
+			var wobble := sin(f * TAU * 1.5 + _frame.t * speed + float(i) * 2.1) * w * 0.020 * f
 			pts.append(Vector2(bx + ox + wobble, base + (tip - base) * f))
 			# Fade out towards the tip: a squiggle that just stops looks cut off.
 			var c := col
@@ -1061,7 +1023,7 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 
 	# In-flow glow — a soft reward for good placement.
 	if zone == PushSim.ZONE_FLOW:
-		var pulse := 0.5 + 0.5 * sin(_t * 6.0)
+		var pulse := 0.5 + 0.5 * sin(_frame.t * 6.0)
 		for band in _state.flow_bands:
 			if _state.needle >= band.x and _state.needle <= band.y:
 				# Two haloes: draw calls have no blur, so a wide-faint plus a
@@ -1241,7 +1203,7 @@ func _draw_buzz(w: float, h: float) -> void:
 	if slot == null:
 		return
 	var ringing := slot.phase == HazardSlot.Phase.ACTIVE
-	var jiggle := sin(_t * 42.0) * (3.0 if ringing else 1.2)
+	var jiggle := sin(_frame.t * 42.0) * (3.0 if ringing else 1.2)
 	var pw := w * 0.055
 	var ph := h * 0.048
 	# In the channel between the gauge (now hard left) and the bowl, so it sits on
@@ -1263,7 +1225,7 @@ func _draw_smell(w: float, h: float) -> void:
 	var arrived := slot.phase == HazardSlot.Phase.ACTIVE
 	var col := Color(0.55, 0.66, 0.24, 0.55 if arrived else 0.28)
 	var r := w * (0.13 if arrived else 0.10)
-	var cx := w * 0.5 + sin(_t * 1.6) * w * (0.02 if arrived else 0.06)
+	var cx := w * 0.5 + sin(_frame.t * 1.6) * w * (0.02 if arrived else 0.06)
 	var cy := h * 0.168
 	draw_circle(Vector2(cx, cy), r, col)
 	draw_circle(Vector2(cx - r * 0.75, cy + r * 0.18), r * 0.72, col)
