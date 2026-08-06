@@ -6,7 +6,21 @@ extends RefCounted
 ## stays unit-testable and localization-agnostic (guardrail 3).
 
 ## Cleanliness at/above this at the end counts as "no major mess" for the ★★★ gate.
-const NO_MAJOR_MESS_MIN: float = 50.0
+##
+## Read against `splash_cleanliness_hit` (12 per splash), this means "at most two
+## splashes": 2 leaves you on 76 and through, 3 leaves you on 64 and out.
+##
+## It was 50, where it did essentially nothing. Cleanliness pays 3 points a
+## percent, so clearing the 850 threshold at all already implied ~49.83% — the gate
+## could only ever decide a run inside a 0.17-wide sliver, and a perfect-otherwise
+## run could take FOUR splashes (base 856) and still collect three stars. The
+## scoring spec is explicit that this gate exists so you "can post a high number and
+## still miss it if you got spotted once or left a disaster", and at 50 it wasn't
+## doing that. A rule the code doesn't enforce also can't be playtested, which is
+## what the spec's own open question about 3★ strictness needs.
+##
+## A tuning number, like every threshold in this file — the spec says as much.
+const NO_MAJOR_MESS_MIN: float = 75.0
 
 
 static func evaluate(state: SimState, _level: LevelDef) -> Dictionary:

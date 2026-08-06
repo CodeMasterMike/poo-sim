@@ -93,19 +93,33 @@ func test_being_detected_caps_the_run_at_two_stars() -> void:
 	assert_eq(int(r["stars"]), 2, "a perfect score still can't buy the third star")
 
 
-## The "no major mess" gate on ★★★, which is very nearly redundant: Cleanliness
-## pays 3 points per percent, so clearing the 850 threshold at all already implies
-## roughly 49.83% Cleanliness. The gate only actually bites in the sliver between
-## that and the stated 50% — which is exactly where this test sits, because a gate
-## that is never the deciding condition is a gate nobody would notice breaking.
+## The "no major mess" gate on ★★★: a run can clear the score threshold outright
+## and still lose the third star for the state it left the place in.
 func test_a_mess_caps_the_run_at_two_stars() -> void:
 	var s := _perfect()
-	s.cleanliness = 49.9      # pays round(149.7) = 150, so the score still reaches 850
+	s.cleanliness = 74.0      # three splashes' worth — comfortably over 850, under the line
 	var r := _score(s)
 
-	assert_eq(int(r["base"]), 850, "the state should sit exactly on the score threshold")
-	assert_false(bool(s.cleanliness >= Scoring.NO_MAJOR_MESS_MIN), "...but under the mess line")
+	assert_true(int(r["base"]) >= 850, "the score alone should have cleared the gate (%d)" % int(r["base"]))
+	assert_false(s.cleanliness >= Scoring.NO_MAJOR_MESS_MIN, "...but the bowl is a state")
 	assert_eq(int(r["stars"]), 2, "a mess should hold the third star back")
+
+
+## And the gate has to be a REAL condition, not one the score threshold already
+## implies. This is what went wrong at the old 50: Cleanliness pays 3 points a
+## percent, so 850 by itself guaranteed ~49.83% and the gate decided nothing.
+## Anything at or under ~49.83 fails on score anyway, so the line has to sit clear
+## of that to mean something.
+func test_the_mess_gate_is_not_implied_by_the_score() -> void:
+	var implied_by_score := (850.0 - 700.0) / 3.0    # the Cleanliness the 850 gate forces
+	assert_gt(Scoring.NO_MAJOR_MESS_MIN, implied_by_score + 1.0,
+			"the mess line (%f) must sit clear of what 850 already implies (%f), or it decides nothing"
+					% [Scoring.NO_MAJOR_MESS_MIN, implied_by_score])
+
+	# ...and a run that is clean enough still gets its third star.
+	var clean := _perfect()
+	clean.cleanliness = Scoring.NO_MAJOR_MESS_MIN
+	assert_eq(int(_score(clean)["stars"]), 3, "exactly on the line should still pass")
 
 
 ## The second star is inclusive at 600. Clear + Discretion + Flow come to 550 here,
