@@ -1,10 +1,17 @@
 extends Control
-## The Sit — view + controller.
+## The Sit — the controller.
 ##
-## This node owns NO gameplay state. It builds a MatchConfig, runs the sim on a
-## fixed timestep, and renders whatever the SimState says. All rules live in
-## scripts/sim/ (deterministic, seeded, UI-decoupled) so the same core can later
-## drive a ghost replay or a mirrored 1v1 board (spec §17).
+## This node owns NO gameplay state and paints nothing. It builds a MatchConfig,
+## runs the sim on a fixed timestep, turns input into one PlayerIntent per step,
+## and hands the model to two renderers. All rules live in scripts/sim/
+## (deterministic, seeded, UI-decoupled) so the same core can later drive a ghost
+## replay or a mirrored 1v1 board (spec §17).
+##
+## The screen is four collaborators:
+##   SitScene   the room, the man, the bowl        (style guide register A)
+##   SitHud     the gauges and the results card    (register B)
+##   SitFrame   what the view is doing ABOUT the model — flashes, shake, the clock
+##   VectorDraw the primitives both renderers paint in
 ##
 ## Hold ANYWHERE to raise the needle; release to let it fall. Keep the needle in
 ## the green Flow Zone to fill cleanly. The Flow Zone shifts and narrows mid-run —
