@@ -40,25 +40,8 @@ enum LevelKind { GREYBOX, CHURCH, RAVE }
 ## Toggle at runtime with B. Off in normal play.
 @export var auto_play: bool = false
 
-# --- Colours: aliased from the locked Palette (docs/specs/poo-sim-style-guide.html)
-#     so every screen draws from one source and can't drift. Local names keep the
-#     draw code terse. ---
-const BG := Palette.BG
-const PANEL := Palette.PANEL
-const DEAD := Palette.DEAD
-const FLOW := Palette.FLOW
-const FLOW_DIM := Palette.FLOW_DIM
-const RED := Palette.RED
-const RED_DIM := Palette.RED_DIM
-const AMBER := Palette.AMBER
-const ORANGE := Palette.ORANGE
-const NEEDLE := Palette.NEEDLE
-const TEXT := Palette.TEXT
-const TEXT_DIM := Palette.TEXT_DIM
-const GOAL := Palette.GOAL
-const MATTER := Palette.MATTER
-const MATTER_DARK := Palette.MATTER_DARK
-const WATER := Palette.WATER
+# (The palette aliases went with the drawing. This node paints nothing now — it
+# owns the loop, the input and the overlays, and hands the model to two renderers.)
 
 # --- Sim (the model + systems; the view only reads state) ---
 var _level: LevelDef
@@ -97,6 +80,10 @@ var _frame := SitFrame.new()
 ## surface noise, and that seed doesn't change within a session.
 var _scene: SitScene
 
+## The instrument panel, over the scene. Holds the scene too — the loss screen
+## composites the sitter back over its own scrim.
+var _hud: SitHud
+
 # --- Overlays (pure view; the sim pauses while either is open) ---
 var _manual: ManualOverlay
 var _picker: LevelPicker
@@ -112,6 +99,7 @@ func _ready() -> void:
 	# during the GUI pass, and the HUD buttons would never get one.
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_scene = SitScene.new(self, match_seed)
+	_hud = SitHud.new(self, _scene)
 	_reset()
 	_manual = ManualOverlay.new()
 	add_child(_manual)
@@ -361,101 +349,19 @@ func _reset() -> void:
 
 # ------------------------------------------------------------------ rendering
 
+## Two layers and a shake. Everything either layer needs arrives as arguments —
+## this node keeps no drawing state of its own.
 func _draw() -> void:
 	var vp := get_viewport_rect().size
-	var w := vp.x
-	var h := vp.y
-	var font := ThemeDB.fallback_font
+	# The shake is applied here, once, so the scene and the panel rattle together.
+	# Applying it per-layer would let them slide against each other.
 	draw_set_transform(_frame.shake, 0.0, Vector2.ONE)
-
-	# The scene, back to front: he sits behind the bowl, the bowl occludes his
-	# lap so you can see into it, then his knees and hands come back over the
-	# front rim. The stink rises off the bowl last.
-	_scene.draw(_state, _level, _frame, w, h)
-
-	# The venue name lives in the LEVEL button (top-left); keep the title clean.
-	VectorDraw.text(self, font, "The Push", 0, int(h * 0.045), w, int(h * 0.026), TEXT)
-
-	_draw_meters_top(font, w, h)
-	_draw_quiet_status(font, w, h)
-	_draw_gauge(font, w, h)
-	_draw_relief_readout(font, w, h)
-	_draw_smell(w, h)
-	_draw_buzz(w, h)
-	_draw_prompt(font, w, h)
-
-	# Footer readouts.
-	var fr := _state.flow_ratio()
-	VectorDraw.text(self, font, "Flow %d%%   ·   %.1fs" % [int(round(fr * 100.0)), _clock.elapsed],
-			0, int(h * 0.88), w, int(h * 0.022), TEXT_DIM)
-	VectorDraw.text(self, font, "HOLD push  ·  release relax  ·  R restart  ·  1/2/3 level  ·  H manual  ·  B autoplay",
-			0, int(h * 0.93), w, int(h * 0.018), TEXT_DIM)
-	if auto_play:
-		VectorDraw.text(self, font, "· AUTOPLAY ·", 0, int(h * 0.85), w, int(h * 0.020), GOAL)
-
-	# Splash flash tint.
-	if _frame.splash_flash > 0.0:
-		var tint := RED
-		tint.a = 0.35 * (_frame.splash_flash / 0.4)
-		draw_rect(Rect2(-40, -40, w + 80, h + 80), tint)
-		VectorDraw.text(self, font, "SPLASH!", 0, int(h * 0.44), w, int(h * 0.045), NEEDLE)
-
-	# Knock resolution banner (brief).
-	if _frame.knock_flash > 0.0:
-		var kcol := FLOW if _frame.knock_flash_good else RED
-		var kt := kcol
-		kt.a = 0.22 * (_frame.knock_flash / 0.8)
-		draw_rect(Rect2(-40, -40, w + 80, h + 80), kt)
-		var ktxt := "STAYED QUIET" if _frame.knock_flash_good else "THEY HEARD YOU!"
-		VectorDraw.text(self, font, ktxt, 0, int(h * 0.40), w, int(h * 0.040), kcol)
-
-	_draw_overlay(font, w, h)
+	_scene.draw(_state, _level, _frame, vp.x, vp.y)
+	_hud.draw(_state, _level, _clock, _scheduler, _frame, auto_play, vp.x, vp.y)
 
 
 
-func _draw_meters_top(font: Font, w: float, h: float) -> void:
-	var mx := w * 0.06
-	var mw := w * 0.88
 
-	# Composure — the master clock, full-width up top.
-	VectorDraw.text(self, font, "COMPOSURE", mx, int(h * 0.072), mw, int(h * 0.016), TEXT_DIM)
-	var cy := h * 0.082
-	var ch := h * 0.024
-	_track(Rect2(mx, cy, mw, ch), _state.composure / 100.0, _meter_color(_state.composure))
-
-	# Discretion + Cleanliness pills, side by side.
-	var py := h * 0.125
-	var ph := h * 0.022
-	var pw := (mw - w * 0.03) * 0.5
-	_pill(font, "DISCRETION", _state.discretion, mx, py, pw, ph, int(h * 0.015))
-	_pill(font, "CLEANLINESS", _state.cleanliness, mx + pw + w * 0.03, py, pw, ph, int(h * 0.015))
-
-
-func _pill(font: Font, label: String, value: float, x: float, y: float, pw: float, ph: float, fs: int) -> void:
-	VectorDraw.text(self, font, "%s  %d" % [label, int(round(value))], x, int(y - h_gap()), pw, fs, TEXT_DIM)
-	_track(Rect2(x, y, pw, ph), value / 100.0, _meter_color(value))
-
-
-## A rounded meter track with a FLAT fill — the shared look for Composure and the
-## two pills. `col` comes from _meter_color(), so the red→amber→green state
-## language is untouched.
-##
-## No gradient, no gloss. §5 is explicit that gradients are juice only and never
-## structural, and the earlier embossed treatment broke that: it read as a glossy
-## app widget rather than the earnest instrument register B is meant to be.
-## Rounding stays — §5 sets a corner scale and puts meters at height/2.
-func _track(rect: Rect2, frac: float, col: Color) -> void:
-	VectorDraw.rrect(self, rect, PANEL.darkened(0.22), int(rect.size.y * 0.5), Palette.BORDER, 2)
-	var pad := 2.5
-	var fw := (rect.size.x - pad * 2.0) * clampf(frac, 0.0, 1.0)
-	if fw <= 1.0:
-		return
-	var fill := Rect2(rect.position.x + pad, rect.position.y + pad, fw, rect.size.y - pad * 2.0)
-	VectorDraw.rrect(self, fill, col, int(fill.size.y * 0.5))
-
-
-func h_gap() -> float:
-	return get_viewport_rect().size.y * 0.006
 
 
 func _level_display_name(kind: int) -> String:
@@ -494,355 +400,5 @@ func _on_level_chosen(index: int) -> void:
 	_manual.close()
 	_switch_level(LevelKind.values()[index])
 
-
-func _is_quiet_room() -> bool:
-	return _level != null and _level.is_quiet_room()
-
-
-## The core read of a quiet-room level: is it safe to push right now, and is a
-## soundscape change coming? Polarity-aware — the Church waits for cover, the Rave
-## dreads the hush — but the three states (heads-up / danger / safe) are shared.
-## Drawn only in a quiet room; ordinary levels never show it.
-func _draw_quiet_status(font: Font, w: float, h: float) -> void:
-	if not _is_quiet_room() or _state.phase != SimState.Phase.PLAYING:
-		return
-	var exposed := Hazards.room_exposed(_state, _level)
-	var slot := Hazards.find(_state, SimEvent.Kind.COVER)
-	var incoming: bool = slot != null and slot.phase == HazardSlot.Phase.TELEGRAPH
-	var church := _level.baseline_exposed
-
-	var col := FLOW
-	var label := "BASS  —  PUSH FREELY"
-	if incoming:
-		# A window is telegraphing: cover incoming (Church) or a hush incoming (Rave).
-		col = AMBER
-		label = "the organ swells  —  GET READY" if church else "the drop's coming  —  EASE OFF SOON"
-	elif exposed:
-		col = RED
-		label = "SILENCE  —  ease off" if church else "HUSH  —  they can hear you!"
-	else:
-		col = FLOW
-		label = "COVER  —  PUSH NOW" if church else "BASS  —  PUSH FREELY"
-
-	# The bar has to fit the band between the pills (bottom h*0.147) and the tops of
-	# the "THE PUSH"/"RELIEF" column labels, whose caps reach up to about h*0.190
-	# from their h*0.202 baseline. That leaves ~h*0.043 of room for an h*0.032 bar;
-	# h*0.152 centres it. Moving it back down collides with both labels — the gauge
-	# and relief columns hold the same place on every level, quiet room or not.
-	var by := h * 0.152
-	var bh := h * 0.032
-	var bar := col
-	bar.a = 0.92
-	VectorDraw.rrect(self, Rect2(w * 0.06, by, w * 0.88, bh), bar, int(bh * 0.34))
-	VectorDraw.text(self, font, label, 0, int(by + bh * 0.70), w, int(h * 0.020), Color(0.08, 0.07, 0.05))
-
-
-## THE PUSH now hugs the left edge: the bowl and the man own the rest of the
-## screen, and the gauge only ever needs to be read for the needle's HEIGHT, so
-## it loses width cheaply.
-func _draw_gauge(font: Font, w: float, h: float) -> void:
-	var gx := w * 0.05
-	var gw := w * 0.16
-	var gy := h * 0.22
-	var gh := h * 0.46
-	var gbot := gy + gh
-	var zone := PushSim.zone_of(_state)
-
-	# Housing, then the recessed track. The track's own colour IS the dead zone;
-	# the flow and red bands float on top of it.
-	VectorDraw.rrect(self, Rect2(gx - 8, gy - 8, gw + 16, gh + 16), PANEL, 16, Palette.BORDER, 2)
-	VectorDraw.rrect(self, Rect2(gx, gy, gw, gh), DEAD, 10)
-
-	# Flat bands. They were gradient-and-gloss "raised surfaces"; §5 says that
-	# treatment is juice, not structure, and the zones are pure structure.
-	var highest := 0.0
-	for band in _state.flow_bands:
-		highest = maxf(highest, band.y)
-		var inside: bool = _state.needle >= band.x and _state.needle <= band.y
-		VectorDraw.band(self, gx, gw, gbot, gh, band.x, band.y,
-				FLOW if (zone == PushSim.ZONE_FLOW and inside) else FLOW_DIM)
-	VectorDraw.band(self, gx, gw, gbot, gh, highest, 1.0, RED if zone == PushSim.ZONE_RED else RED_DIM)
-
-	# In-flow glow — a soft reward for good placement.
-	if zone == PushSim.ZONE_FLOW:
-		var pulse := 0.5 + 0.5 * sin(_frame.t * 6.0)
-		for band in _state.flow_bands:
-			if _state.needle >= band.x and _state.needle <= band.y:
-				# Two haloes: draw calls have no blur, so a wide-faint plus a
-				# tight-brighter pass fakes the falloff.
-				var outer := FLOW
-				outer.a = (0.10 + 0.09 * pulse)
-				VectorDraw.band(self, gx - 6, gw + 12, gbot, gh, band.x - 0.014, band.y + 0.014, outer, 14)
-				var inner := FLOW
-				inner.a = (0.14 + 0.12 * pulse)
-				VectorDraw.band(self, gx - 3, gw + 6, gbot, gh, band.x - 0.006, band.y + 0.006, inner, 11)
-
-	# Needle — the one pure-white mark on the screen, haloed in its zone colour.
-	var ny := gbot - _state.needle * gh
-	var zcol: Color = [TEXT_DIM, FLOW, RED][zone]
-	# Four fading passes rather than two: with hard-edged rects, too few steps
-	# read as stacked lozenges instead of a glow. The whole needle stays inside
-	# the housing — a halo spilling onto the backdrop reads as a smear. The dead
-	# zone's grey halo is pulled right down; it's the state with nothing to say.
-	var halo_peak := 0.12 if zone == PushSim.ZONE_DEAD else 0.26
-	for i in 4:
-		var f := float(i) / 3.0
-		var halo := zcol
-		halo.a = halo_peak * (1.0 - f * 0.70)
-		var hh := 32.0 - f * 15.0
-		var spread := 12.0 - f * 9.0
-		VectorDraw.rrect(self, Rect2(gx - spread, ny - hh * 0.5, gw + spread * 2.0, hh), halo, int(hh * 0.5))
-
-	# Flat white bar and a capped tip. The halo above stays — a glow around the
-	# needle is exactly the "juice" §5 permits; the highlight line that used to
-	# run along the bar was emboss, and went.
-	var body := Rect2(gx - 4.0, ny - 8.0, gw + 8.0, 16.0)
-	VectorDraw.rrect(self, body, NEEDLE, 8)
-	var tip := Vector2(gx + gw - 8.0, ny)
-	draw_circle(tip, 11.0, NEEDLE)
-	draw_arc(tip, 11.0, 0.0, TAU, 28, zcol, 2.5, true)
-
-	# Quiet room, currently exposed: everything above the silence cap is audible —
-	# mark that region so the player sees exactly how low they must ride it out.
-	if _is_quiet_room() and Hazards.room_exposed(_state, _level):
-		var y_cap := gbot - _level.silence_push_cap * gh
-		var warn := RED
-		warn.a = 0.14
-		VectorDraw.rrect(self, Rect2(gx, gy, gw, y_cap - gy), warn, 10)
-		draw_line(Vector2(gx, y_cap), Vector2(gx + gw, y_cap), RED, 2.0)
-
-	# During a Knock freeze, frost the gauge and flip the demand to RELEASE (UI spec).
-	if Hazards.relief_stalled(_state):
-		VectorDraw.rrect(self, Rect2(gx - 8, gy - 8, gw + 16, gh + 16), Color(0.55, 0.78, 0.98, 0.16), 16)
-
-	VectorDraw.text(self, font, "THE PUSH", gx - 8, int(gy - h * 0.018), gw + 16, int(h * 0.016), TEXT_DIM)
-	# The zone name is a claim about what is happening RIGHT NOW, so it goes quiet
-	# once the run is over — a frozen gauge still reading "FLOW" under the results
-	# scrim says the run is live when it isn't. The gauge itself stays, as a
-	# record of where the needle ended up; only the claim goes.
-	if _state.phase != SimState.Phase.PLAYING:
-		return
-	var zname: String = ["DEAD ZONE", "FLOW", "RED ZONE"][zone]
-	var zlabel_col := zcol
-	if Hazards.relief_stalled(_state):
-		zname = "RELEASE"
-		zlabel_col = Color(0.72, 0.88, 1.0)
-	# The zone name gets a WIDER region than the gauge itself. At this column
-	# width "DEAD ZONE" clips to "DEAD Z"; the strip to the gauge's right is empty
-	# down here, so the label can centre on the gauge and overhang it.
-	VectorDraw.text(self, font, zname, 0, int(gbot + h * 0.04), w * 0.26, int(h * 0.024), zlabel_col)
-
-
-## Relief lost its abstract green tube — the bowl IS the meter now, so all that's
-## left is the precise readout. A pile is a great feel and a poor number, and the
-## win condition is an exact 100%, so the digits stay.
-func _draw_relief_readout(font: Font, w: float, h: float) -> void:
-	# Once the run is over the results screen owns every number, and this one sits
-	# exactly where the win screen puts "tap · press R to retry".
-	if _state.phase != SimState.Phase.PLAYING:
-		return
-	var cav := SitScene.bowl_cavity(w, h)
-	# Consistency rides alongside the percentage. It changes the fill rate, so it
-	# can't be a thing you only infer from the shape of the pile — but it's a feel,
-	# not a number, so it gets a word rather than a second percentage.
-	# Wider than the cavity, and shifted back by half the excess so it stays
-	# centred on the bowl — the cavity's own width clips the longer words.
-	var pad := w * 0.14
-	# Shows PROGRESS, not the mass counter: the bowl is the Relief meter, and what
-	# the meter has to answer is "how close am I to done", which is now the pile's
-	# height against the goal line. `_state.relief` is still the mass that left you
-	# and still drives Flow Ratio — it just isn't the finish line any more.
-	var line := "RELIEF  %d%%" % int(_state.progress)
-	var word := _readout_consistency()
-	if not word.is_empty():
-		line += "   ·   " + word
-	VectorDraw.text(self, font, line, cav.position.x - pad * 0.5, int(h * 0.727), cav.size.x + pad,
-			int(h * 0.024), TEXT)
-
-
-## Which consistency the readout names.
-##
-## While something is coming out, it describes THAT. When nothing is — needle on
-## the floor, a Knock freeze, a splash stall — naming the exit is describing output
-## that isn't happening, and it reads as a contradiction next to a bowl full of
-## firm matter. So it falls back to what's in the bowl, the only consistency that
-## still means anything at rest.
-##
-## Empty and not flowing (the opening seconds) names nothing at all: `bowl_thickness`
-## is undefined until the first deposit, so any word there would be invented.
-func _readout_consistency() -> String:
-	if SitScene.is_flowing(_state, _level):
-		return _consistency_word(_state.thickness)
-	if _state.bowl_mass() > 0.0:
-		return _consistency_word(_state.bowl_thickness)
-	return ""
-
-
-func _consistency_word(t: float) -> String:
-	if t < 0.20:
-		return "RUNNY"
-	if t < 0.42:
-		return "LOOSE"
-	if t < 0.60:
-		return "STEADY"
-	if t < 0.80:
-		return "FIRM"
-	return "SOLID"
-
-
-func _draw_prompt(font: Font, w: float, h: float) -> void:
-	# Nothing in-flight matters once the run is over — the results own the screen.
-	if _state.phase != SimState.Phase.PLAYING:
-		return
-	# A live hazard owns the prompt band; otherwise fall back to a scheduled prompt.
-	var text := _hazard_banner()
-	var col := ORANGE
-	if not text.is_empty():
-		col = AMBER
-		# Red once a hazard is actually on you, amber while it's still telegraphing.
-		for kind in [SimEvent.Kind.SMELL, SimEvent.Kind.JOLT, SimEvent.Kind.BUZZ]:
-			var s := Hazards.find(_state, kind)
-			if s != null and s.phase == HazardSlot.Phase.ACTIVE:
-				col = RED
-		if Hazards.relief_stalled(_state):
-			col = RED
-	elif not _scheduler.last_prompt.is_empty():
-		text = _scheduler.last_prompt
-	if text.is_empty():
-		return
-	var by := h * 0.74
-	var bh := h * 0.05
-	VectorDraw.rrect(self, Rect2(w * 0.10, by, w * 0.80, bh), col, int(bh * 0.30))
-	VectorDraw.text(self, font, text, 0, int(by + bh * 0.66), w, int(h * 0.026), Color(0.1, 0.08, 0.05))
-
-
-## A live hazard owns the prompt band. The Knock wins ties — it takes your input
-## away, so it's the more urgent read.
-func _hazard_banner() -> String:
-	var knock := Hazards.find(_state, SimEvent.Kind.KNOCK)
-	if knock != null:
-		match knock.phase:
-			HazardSlot.Phase.TELEGRAPH:
-				return "*knock*  —  GET READY"
-			HazardSlot.Phase.ACTIVE:
-				return "HOLD STILL  —  RELEASE!"
-	var jolt := Hazards.find(_state, SimEvent.Kind.JOLT)
-	if jolt != null:
-		return "SWIPE TO RE-CENTER" if jolt.phase == HazardSlot.Phase.ACTIVE \
-				else "*rumble*  —  BRACE"
-	if Hazards.find(_state, SimEvent.Kind.BUZZ) != null:
-		return "BZZT  —  TAP TO DISMISS"
-	if Hazards.find(_state, SimEvent.Kind.SMELL) != null:
-		return "SMELL  —  SWIPE TO WAFT"
-	return ""
-
-
-## The phone, buzzing away in your pocket — jittering faster once it's ringing out.
-func _draw_buzz(w: float, h: float) -> void:
-	if _state.phase != SimState.Phase.PLAYING:
-		return
-	var slot := Hazards.find(_state, SimEvent.Kind.BUZZ)
-	if slot == null:
-		return
-	var ringing := slot.phase == HazardSlot.Phase.ACTIVE
-	var jiggle := sin(_frame.t * 42.0) * (3.0 if ringing else 1.2)
-	var pw := w * 0.055
-	var ph := h * 0.048
-	# In the channel between the gauge (now hard left) and the bowl, so it sits on
-	# neither.
-	var px := w * 0.245 + jiggle
-	var py := h * 0.30
-	draw_rect(Rect2(px, py, pw, ph), ORANGE if ringing else AMBER)
-	draw_rect(Rect2(px + pw * 0.14, py + ph * 0.10, pw * 0.72, ph * 0.64), Color(0.12, 0.12, 0.14))
-
-
-## The cloud itself: drifting and faint while incoming, close and solid once it's
-## on you. Drawn from the model, so it can't disagree with the hazard state.
-func _draw_smell(w: float, h: float) -> void:
-	if _state.phase != SimState.Phase.PLAYING:
-		return
-	var slot := Hazards.find(_state, SimEvent.Kind.SMELL)
-	if slot == null:
-		return
-	var arrived := slot.phase == HazardSlot.Phase.ACTIVE
-	var col := Color(0.55, 0.66, 0.24, 0.55 if arrived else 0.28)
-	var r := w * (0.13 if arrived else 0.10)
-	var cx := w * 0.5 + sin(_frame.t * 1.6) * w * (0.02 if arrived else 0.06)
-	var cy := h * 0.168
-	draw_circle(Vector2(cx, cy), r, col)
-	draw_circle(Vector2(cx - r * 0.75, cy + r * 0.18), r * 0.72, col)
-	draw_circle(Vector2(cx + r * 0.75, cy + r * 0.12), r * 0.78, col)
-
-
-func _draw_overlay(font: Font, w: float, h: float) -> void:
-	if _state.phase == SimState.Phase.PLAYING:
-		return
-
-	draw_rect(Rect2(-40, -40, w + 80, h + 80), Color(0.03, 0.04, 0.05, 0.80))
-
-	if _state.phase == SimState.Phase.LOST:
-		# Re-draw him ON TOP of the scrim. He is the fail state, and behind an
-		# 0.80 wash of black the slump is invisible — the beat is worth more than
-		# the dimming. The text lands over him and still reads: he is a flat dark
-		# silhouette, which is exactly what text wants behind it.
-		_scene.draw_sitter(_state, _frame, w, h)
-		VectorDraw.text(self, font, "COULDN'T HOLD IT", 0, int(h * 0.40), w, int(h * 0.050), RED)
-		VectorDraw.text(self, font, "Composure ran out.", 0, int(h * 0.47), w, int(h * 0.026), TEXT)
-		# Below his feet, not across his head — the slump is the picture here.
-		VectorDraw.text(self, font, "tap  ·  press R to retry", 0, int(h * 0.76), w, int(h * 0.024), TEXT_DIM)
-		return
-
-	# WON — score from the four meters.
-	var result := Scoring.evaluate(_state, _level)
-	_draw_stars(w * 0.5, h * 0.28, int(result.stars))
-	VectorDraw.text(self, font, _rank_title(result), 0, int(h * 0.36), w, int(h * 0.040), GOAL)
-
-	var bd: Dictionary = result["breakdown"]
-	var y := 0.44
-	# Bracket keys (not bd.clear — that resolves to Dictionary.clear()).
-	_score_line(font, w, h, y, "Clear", int(bd["clear"])); y += 0.045
-	_score_line(font, w, h, y, "Discretion", int(bd["discretion"])); y += 0.045
-	_score_line(font, w, h, y, "Cleanliness", int(bd["cleanliness"])); y += 0.045
-	_score_line(font, w, h, y, "Flow", int(bd["flow"])); y += 0.045
-	_score_line(font, w, h, y, "Speed", int(bd["speed"])); y += 0.055
-	VectorDraw.text(self, font, "SCORE  %d" % int(result["base"]), 0, int(h * y), w, int(h * 0.034), TEXT)
-	VectorDraw.text(self, font, "tap  ·  press R to retry", 0, int(h * (y + 0.06)), w, int(h * 0.024), TEXT_DIM)
-
-
-func _score_line(font: Font, w: float, h: float, y: float, label: String, pts: int) -> void:
-	VectorDraw.text(self, font, "%s" % label, w * 0.16, int(h * y), w * 0.40, int(h * 0.024), TEXT_DIM)
-	VectorDraw.text(self, font, "%d" % pts, w * 0.56, int(h * y), w * 0.24, int(h * 0.024), TEXT)
-
-
-func _draw_stars(cx: float, cy: float, stars: int) -> void:
-	var r := get_viewport_rect().size.y * 0.03
-	var gap := r * 2.6
-	for i in 3:
-		var c := Vector2(cx + (float(i) - 1.0) * gap, cy)
-		VectorDraw.star(self, c, r, GOAL if i < stars else TEXT_DIM, i < stars)
-
-
-func _rank_title(result: Dictionary) -> String:
-	match int(result.stars):
-		3:
-			return "SMOOTH OPERATOR"
-		2:
-			return "GOT THE JOB DONE"
-		_:
-			return "PUBLICLY HUMILIATED" if not bool(result.never_detected) else "BY A HAIR"
-
-
-# The drawing primitives moved to VectorDraw (scripts/ui/vector_draw.gd) — they
-# are the idiom the whole game paints in, not this screen's business.
-#
-# The meter ramp stays: it isn't a primitive, it's the state language from the
-# style guide (red below half, through amber, to green) and it means nothing
-# outside a meter.
-
-func _meter_color(v: float) -> Color:
-	var f := clampf(v / 100.0, 0.0, 1.0)
-	if f < 0.5:
-		return RED.lerp(AMBER, f / 0.5)
-	return AMBER.lerp(FLOW, (f - 0.5) / 0.5)
 
 
