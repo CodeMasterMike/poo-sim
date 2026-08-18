@@ -25,3 +25,8 @@ mono_crash.*.json
 Thumbs.db
 .directory
 *~
+
+# Claude Code: shared project config (launch.json) is tracked; the local
+# permission allowlist is machine-specific (absolute paths, per-session grants).
+.claude/settings.local.json
+.claude/worktrees/

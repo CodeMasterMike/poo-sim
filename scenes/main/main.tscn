@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://bey26whggeqi3"]
+
+[node name="Main" type="Control" unique_id=283841966]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Placeholder" type="Label" parent="." unique_id=1979268242]
+layout_mode = 0
+offset_left = 60.0
+offset_top = 80.0
+offset_right = 1020.0
+offset_bottom = 200.0
+text = "Poo Sim
+Project scaffold ready — no gameplay yet.
+Next: build The Push prototype (grey-box)."
+horizontal_alignment = 1
