@@ -33,7 +33,71 @@ var frame: SitFrame
 ## The room's ground plane, as a fraction of screen height. Sits below both the
 ## gauge and the bowl so the whole scene stands on one floor. Everything under it
 ## is HUD apron: the prompt band and the footer readouts.
-const FLOOR_Y := 0.735
+##
+## It came up from 0.735 when the toilet grew a pedestal. The bowl used to hover
+## with h*0.02 of nothing under it; now the foot lands ON this line, so the line
+## is what the toilet stands on rather than a stripe behind it. 0.700 is as low
+## as it can go — the Relief readout's caps reach h*0.703.
+const FLOOR_Y := 0.700
+
+# --- The toilet, in one block --------------------------------------------
+#
+# Every part of it is positioned off every other part, and scattering these
+# across four draw functions is exactly how the cistern ended up floating a
+# screen's worth of nothing above the bowl the first time round.
+
+## The seat: an ellipse, because we are looking slightly DOWN at it. It is the
+## widest thing in the scene — wider than his hips, wider than the body under it
+## — and that overhang is most of what says "toilet" instead of "bucket". The
+## bowl was a rounded rect before, square-shouldered and the same width top to
+## bottom, and it read as a laundry basket.
+const SEAT_CY := 0.494    ## the seat's centre line (h) — level with his hips
+const SEAT_RX := 0.255    ## outer half-width (w)
+const SEAT_RY := 0.046    ## how steep the angle we're looking from is (h)
+const SEAT_LIP := 0.014   ## its thickness, seen from above (h)
+
+## The opening — also the mouth of the cavity, so HOLE_RX sets the meter's width.
+## The seat's band is the gap between this and SEAT_RX/SEAT_RY.
+##
+## Deliberately NARROW. The first attempt kept the old bowl's width here and the
+## result was a grey frame around a black rectangle: the hole was 0.384w across
+## inside a 0.464w body, so the porcelain came to h*0.04 a side and read as an
+## outline rather than as ceramic with mass. It looked like a wheelie bin. The
+## hole is the one measurement to be stingy with — everything else on the fixture
+## is only legible in the space it leaves.
+const HOLE_RX := 0.136    ## (w)
+const HOLE_RY := 0.024    ## (h)
+
+## Where the cavity floor sits (h). Below it is solid porcelain and then the
+## pedestal, which needs the rest of the drop to FLOOR_Y to say "stem" — hence
+## the cavity giving up h*0.034 against the old bowl.
+const BOWL_BASE := 0.650
+
+## How wide the throat is at the cavity's floor, as a fraction of its mouth. A
+## bowl narrows toward the trap, and saying so is most of what stops the cavity
+## reading as a slot cut in a grey box: straight sides and a flat top gave the
+## whole fixture away as a rectangle with a lid.
+const THROAT_PINCH := 0.72
+
+## The body's half-width (in w) at each step of the fall from SEAT_CY to
+## FLOOR_Y. A toilet is not a cone: it hangs almost straight under the seat's
+## overhang, tucks in hard over the last quarter, and kicks back out into a foot
+## where it meets the floor.
+##
+## The near-vertical top three quarters are also load-bearing, not styling. The
+## contents are drawn in `bowl_cavity()`'s rect — a straight-sided frame — so the
+## porcelain has to stay wider than HOLE_RX for the cavity's whole depth or the
+## pile draws itself outside the silhouette. The pinch is only allowed to start
+## below BOWL_BASE, which is where the cavity has already ended.
+const BODY_PROFILE := [
+	Vector2(0.00, 0.198),
+	Vector2(0.30, 0.190),
+	Vector2(0.55, 0.176),
+	Vector2(0.76, 0.158),   # BOWL_BASE lands here — still clear of HOLE_RX
+	Vector2(0.87, 0.134),
+	Vector2(0.95, 0.110),
+	Vector2(1.00, 0.124),   # the foot, kicking back out where it meets the floor
+]
 
 ## How many render samples the bowl's heightfield is drawn at, per simulated
 ## column. The sim settles 24 columns; drawing them raw reads as 24 visible
@@ -224,14 +288,64 @@ static func scene_cx(w: float) -> float:
 ## The bowl's outer porcelain, and the cavity you can see into. Kept as two
 ## functions' worth of geometry in one place so the readout, the stink lines and
 ## the deposits can't drift out of register with the art.
+##
+## `bowl_rect` is the whole fixture's footprint — seat overhang included, down to
+## the floor. Only the splatter reads it, for the span to throw drops across.
 static func bowl_rect(w: float, h: float) -> Rect2:
 	var cx := scene_cx(w)
-	return Rect2(cx - w * 0.245, h * 0.487, w * 0.49, h * 0.228)
+	var top := h * (SEAT_CY - SEAT_RY)
+	return Rect2(cx - w * SEAT_RX, top, w * SEAT_RX * 2.0, h * FLOOR_Y - top)
 
 
+## The cavity: the throat you see down, and the frame everything inside the bowl
+## is positioned in — the water, the skid marks, the pile, the goal line, and the
+## HUD's Relief readout under it.
+##
+## Its mouth IS the seat's opening, so it starts at the opening's widest line and
+## is the opening's width; the ellipse's own upper half caps it off above, and
+## the front of the seat is cut away over it. That cutaway is why the seat reads
+## as an open-front one — which is a real seat, and the honest way to keep a
+## front-on bowl legible as a fill meter.
 static func bowl_cavity(w: float, h: float) -> Rect2:
 	var cx := scene_cx(w)
-	return Rect2(cx - w * 0.205, h * 0.505, w * 0.41, h * 0.190)
+	return Rect2(cx - w * HOLE_RX, h * SEAT_CY, w * HOLE_RX * 2.0, h * (BOWL_BASE - SEAT_CY))
+
+
+## The throat's half-width at a fraction of the way down the cavity.
+static func _throat_hw(w: float, t: float) -> float:
+	return w * HOLE_RX * lerpf(1.0, THROAT_PINCH, pow(clampf(t, 0.0, 1.0), 1.35))
+
+
+## The body's half-width at a fraction of the fall from the seat to the floor.
+## Straight lines between the BODY_PROFILE steps read as a faceted cone, so the
+## bracketing pair is smoothstepped instead.
+static func _body_hw(t: float) -> float:
+	var u := clampf(t, 0.0, 1.0)
+	for i in BODY_PROFILE.size() - 1:
+		var a: Vector2 = BODY_PROFILE[i]
+		var b: Vector2 = BODY_PROFILE[i + 1]
+		if u <= b.x:
+			return lerpf(a.y, b.y, smoothstep(a.x, b.x, u))
+	var last: Vector2 = BODY_PROFILE[BODY_PROFILE.size() - 1]
+	return last.y
+
+
+## The body's outer silhouette as one closed polygon, so the fill and the ink
+## come off the same points and can never disagree by a pixel.
+static func _body_outline(w: float, h: float, steps: int = 28) -> PackedVector2Array:
+	var cx := scene_cx(w)
+	var top := h * SEAT_CY
+	var span := h * FLOOR_Y - top
+	var right := PackedVector2Array()
+	var left := PackedVector2Array()
+	for i in steps + 1:
+		var t := float(i) / float(steps)
+		var hw := w * _body_hw(t)
+		var y := top + span * t
+		right.append(Vector2(cx + hw, y))
+		left.append(Vector2(cx - hw, y))
+	left.reverse()
+	return right + left
 
 
 ## The bowl — and the whole point of it, which is that Relief is no longer an
@@ -244,18 +358,54 @@ func _draw_bowl(w: float, h: float) -> void:
 	var iw := maxf(2.0, w * 0.005)
 	var cera := DEAD.lightened(0.28)
 	var cera_sh := DEAD.lightened(0.02)
+	var cx := scene_cx(w)
+	var hole := PANEL.darkened(0.52)
 	var outer := bowl_rect(w, h)
 	var cav := bowl_cavity(w, h)
 
-	# Tight at the rim, deeply round at the base — a basin, not a bucket.
-	VectorDraw.rrect_corners(_ci, outer, cera, int(w * 0.045), int(w * 0.045), int(w * 0.20), int(w * 0.20),
-			ink, int(iw))
-	# The rim, as its own darker ring (§5: flat, 2-tone — no gradient).
-	VectorDraw.rrect(_ci, Rect2(outer.position.x + w * 0.018, outer.position.y + h * 0.008,
-			outer.size.x - w * 0.036, h * 0.020), cera_sh, int(h * 0.010))
-	# The cavity: a hole, not a surface. Everything below is inside the bowl.
-	VectorDraw.rrect_corners(_ci, cav, PANEL.darkened(0.52), int(w * 0.030), int(w * 0.030),
-			int(w * 0.17), int(w * 0.17))
+	# The shadow where it meets the floor. Without it the pedestal stands on the
+	# floor LINE rather than on the floor, and the fixture reads as a sticker laid
+	# over the room instead of a thing in it.
+	VectorDraw.ellipse(_ci, Vector2(cx, h * FLOOR_Y), w * 0.150, h * 0.013,
+			Color(0.0, 0.0, 0.0, 0.30))
+
+	# The porcelain body: hangs almost straight under the seat's overhang, tucks
+	# in over the last quarter, kicks back out into a foot. See BODY_PROFILE.
+	VectorDraw.inked(_ci, _body_outline(w, h), cera, ink, iw)
+
+	# The seat, in three passes: its edge, offset DOWN so its thickness shows from
+	# this angle; its top surface; and the opening punched through both.
+	#
+	# The top surface gets a THIRD porcelain tone, and it has to. The first cut
+	# gave the seat the body's own fill and leaned on the overhang and the ink to
+	# separate them — and they can't. Identical fills merge whatever is drawn
+	# between them, and an ink line w*0.005 wide describes an edge, not a plane.
+	# The seat simply vanished into the bowl. This is the one up-facing surface on
+	# the fixture, so it is the one that catches the light.
+	var cera_lit := DEAD.lightened(0.50)
+	var seat := Vector2(cx, h * SEAT_CY)
+	VectorDraw.ellipse(_ci, seat + Vector2(0.0, h * SEAT_LIP), w * SEAT_RX, h * SEAT_RY,
+			cera_sh, ink, iw)
+	VectorDraw.ellipse(_ci, seat, w * SEAT_RX, h * SEAT_RY, cera_lit, ink, iw)
+
+	# The hinges. Two lugs at the back, bridging the seat to the cistern's neck —
+	# a cheap detail that buys a lot, because a hinge is a thing only a toilet
+	# seat has. Set out at w*0.095 so they clear his torso (w*0.072) and still sit
+	# inside the neck (w*0.100); dead centre they would simply be behind him.
+	for side in [-1.0, 1.0]:
+		VectorDraw.rrect(_ci, Rect2(cx + side * w * 0.095 - w * 0.017,
+				h * (SEAT_CY - SEAT_RY * 0.95), w * 0.034, h * 0.030),
+				cera_sh, int(w * 0.010), ink, int(iw))
+
+	VectorDraw.ellipse(_ci, seat, w * HOLE_RX, h * HOLE_RY, hole, ink, iw)
+
+	# The cavity: a hole, not a surface. Everything below is inside the bowl. It
+	# hangs off the opening's widest line so the two merge into one throat, and it
+	# covers the seat's front band on the way — that erasure IS the cutaway.
+	#
+	# Barely rounded at the base: the throat walls below do the shaping now, and a
+	# deep radius here fought them for the same corner.
+	VectorDraw.rrect_corners(_ci, cav, hole, 0, 0, int(w * 0.05), int(w * 0.05))
 
 	# Water first, so anything that lands displaces it visually. It goes off as
 	# the bowl fills — clean at the start, and by the end you would not put your
@@ -268,6 +418,7 @@ func _draw_bowl(w: float, h: float) -> void:
 	_draw_streaks(cav)
 	_draw_pile(cav)
 	_draw_stream(h, cav)
+	_draw_throat_walls(w, h, cav, cera_sh, ink, iw)
 
 	# Splatter. The red zone costs Cleanliness, which the streaks above record
 	# permanently; this is the moment it happens, thrown up onto the rim.
@@ -282,13 +433,53 @@ func _draw_bowl(w: float, h: float) -> void:
 	# THE LINE. Not decoration any more and not pinned to the rim: the run ends the
 	# moment the pile touches this, so it is drawn at the level's own goal_height
 	# and the player is watching a real finish line rather than a label.
+	#
+	# A HOOP, not a bar. Its height is honest — still `goal_height` off the
+	# cavity floor — but its shape is now the shape a level actually has in a bowl
+	# you look down into, sized to the throat at its own depth and squashed by the
+	# same perspective ratio as the seat. As a straight rect it spanned the full
+	# mouth, and at the default goal_height of 1.0 that put a bright yellow bar
+	# clean across the seat: the fixture read as a bin with the lid shut.
 	var line_y := cav.end.y - cav.size.y * level.goal_height
+	var line_hw := _throat_hw(w, clampf(1.0 - level.goal_height, 0.0, 1.0))
+	var line_ry := line_hw * (h * SEAT_RY) / (w * SEAT_RX)
 	var glow := GOAL
 	glow.a = 0.20
-	VectorDraw.rrect(_ci, Rect2(cav.position.x - w * 0.012, line_y - h * 0.008,
-			cav.size.x + w * 0.024, h * 0.014), glow, 6)
-	VectorDraw.rrect(_ci, Rect2(cav.position.x - w * 0.006, line_y - h * 0.004,
-			cav.size.x + w * 0.012, h * 0.006), GOAL, 3)
+	var at := Vector2(cx, line_y)
+	VectorDraw.ellipse_ring(_ci, at, line_hw, line_ry, glow, maxf(6.0, h * 0.012))
+	VectorDraw.ellipse_ring(_ci, at, line_hw, line_ry, GOAL, maxf(2.0, h * 0.004))
+
+
+## The bowl's inner walls, drawn back OVER the contents.
+##
+## The pile, the water and the skid marks are all laid out in `bowl_cavity()`'s
+## straight-sided rect, because a heightfield of vertical strips is what the sim
+## settles and re-projecting it into a tapering throat every frame would buy the
+## picture nothing the eye can read. So the taper is applied afterwards, as
+## porcelain: these two wedges cover the strip between the rect's edge and the
+## throat's, which both clips the contents back into the throat AND is the inner
+## wall. They only work because BODY_PROFILE never narrows past HOLE_RX above
+## BOWL_BASE — the wedge is always laid over porcelain, never over the room.
+##
+## The wall takes the shadow tone: it is the unlit side of a curved surface.
+func _draw_throat_walls(w: float, h: float, cav: Rect2, cera_sh: Color,
+		ink: Color, iw: float) -> void:
+	var cx := scene_cx(w)
+	var steps := 18
+	for side in [-1.0, 1.0]:
+		var edge := PackedVector2Array()
+		for i in steps + 1:
+			var t := float(i) / float(steps)
+			edge.append(Vector2(cx + side * _throat_hw(w, t), cav.position.y + cav.size.y * t))
+		var wedge := edge.duplicate()
+		# Back up the rect's own edge, so the wedge always closes on porcelain.
+		wedge.append(Vector2(cx + side * w * HOLE_RX, cav.end.y))
+		wedge.append(Vector2(cx + side * w * HOLE_RX, cav.position.y))
+		VectorDraw.inked(_ci, wedge, cera_sh)
+		# Ink the INNER edge only. Outlining the wedge would run a second line
+		# down its outer edge, where it abuts the body — which reads as a crack
+		# in the porcelain rather than as the lip of the throat.
+		_ci.draw_polyline(edge, ink, iw, true)
 
 
 ## Skid marks down the porcelain. Cleanliness is the meter that already tracks

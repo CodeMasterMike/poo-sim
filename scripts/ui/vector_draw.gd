@@ -57,6 +57,59 @@ static func rrect_corners(ci: CanvasItem, rect: Rect2, col: Color,
 	ci.draw_style_box(sb, rect)
 
 
+## A closed polygon with a thick ink outline — the register-A treatment (§5:
+## flat fill, one shadow tone, thick outline, no gradient) for the shapes a
+## rounded rect can't say. The toilet's body is one: it has to pinch in under
+## the seat and kick back out into a foot, and no corner radius describes that.
+##
+## The ink goes down FIRST, as an over-wide closed polyline, and the fill covers
+## its inner half. Same trick as shade_limbs(), and for the same reason: an
+## outline stroked on top straddles the edge and eats inward, which on a band as
+## thin as the seat's closes the shape up entirely.
+static func inked(ci: CanvasItem, pts: PackedVector2Array, col: Color,
+		ink: Color = TRANSPARENT, iw: float = 0.0) -> void:
+	if pts.size() < 3:
+		return
+	if iw > 0.0 and ink.a > 0.0:
+		var ring := pts.duplicate()
+		ring.append(pts[0])
+		ci.draw_polyline(ring, ink, iw * 2.0, true)
+	ci.draw_colored_polygon(pts, col)
+
+
+## An ellipse, as a polygon. The toilet is ellipses all the way down — the seat,
+## its opening, the shadow the pedestal casts on the floor — and Godot draws
+## circles and rounded rects and nothing in between. Scaling a circle under a
+## transform was the alternative, and it scales the ink with it, so a squashed
+## seat comes back with a squashed outline.
+static func ellipse_pts(center: Vector2, rx: float, ry: float,
+		segments: int = 48) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	for i in segments:
+		var a := TAU * float(i) / float(segments)
+		pts.append(center + Vector2(cos(a) * rx, sin(a) * ry))
+	return pts
+
+
+static func ellipse(ci: CanvasItem, center: Vector2, rx: float, ry: float, col: Color,
+		ink: Color = TRANSPARENT, iw: float = 0.0) -> void:
+	if rx <= 0.0 or ry <= 0.0:
+		return
+	inked(ci, ellipse_pts(center, rx, ry), col, ink, iw)
+
+
+## An ellipse as an outline rather than a fill — a hoop lying at some depth in
+## the bowl, which is how a level reads once the bowl has a mouth you look down
+## into. Closed, so there is no seam at the start point.
+static func ellipse_ring(ci: CanvasItem, center: Vector2, rx: float, ry: float,
+		col: Color, width: float, segments: int = 48) -> void:
+	if rx <= 0.0 or ry <= 0.0:
+		return
+	var pts := ellipse_pts(center, rx, ry, segments)
+	pts.append(pts[0])
+	ci.draw_polyline(pts, col, width, true)
+
+
 ## A vertical two-stop gradient, as a quad with per-vertex colours. Its corners
 ## are SHARP — inset it inside a rounded housing rather than using it as the
 ## outer shape of anything.
