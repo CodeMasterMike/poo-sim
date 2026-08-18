@@ -33,22 +33,11 @@ func _make_room(baseline_exposed: bool, with_window: bool, cap: float) -> LevelD
 	return level
 
 
+## Takes a BUILT level rather than a factory, because the polarity under test is a
+## property of how `_make_room` configured it — each test builds its own room and
+## hands it straight over, so there is still exactly one run per level.
 func _run(level: LevelDef, seed_value: int, hold_pattern: Callable, steps: int) -> SimState:
-	var clock := SimClock.new(seed_value)
-	level.resolve_timeline(SimClock.FIXED_DT, clock.rng)
-	var state := SimState.for_level(level)
-	var sim := PushSim.new()
-	var scheduler := EventScheduler.new()
-	scheduler.load_timeline(level.timeline)
-	for _i in steps:
-		if state.phase != SimState.Phase.PLAYING:
-			break
-		var intent := PlayerIntent.new()
-		intent.holding = bool(hold_pattern.call(clock.step))
-		scheduler.tick(clock, state)
-		sim.tick(state, intent, clock, level, SimClock.FIXED_DT)
-		clock.advance()
-	return state
+	return SimHarness.on(level, seed_value).holding(hold_pattern).step(steps).state
 
 
 # ---------------------------------------------------------------- Church polarity

@@ -23,22 +23,7 @@ func _make_level() -> LevelDef:
 ## `hold_pattern` is Callable(step: int) -> bool, so intents are a pure function
 ## of the step — the same contract a recorded ghost will satisfy.
 func _run(make_level: Callable, seed_value: int, hold_pattern: Callable, max_steps: int) -> SimState:
-	var level: LevelDef = make_level.call()
-	var clock := SimClock.new(seed_value)
-	level.resolve_timeline(SimClock.FIXED_DT, clock.rng)
-	var state := SimState.for_level(level)
-	var sim := PushSim.new()
-	var scheduler := EventScheduler.new()
-	scheduler.load_timeline(level.timeline)
-	for _i in max_steps:
-		if state.phase != SimState.Phase.PLAYING:
-			break
-		var intent := PlayerIntent.new()
-		intent.holding = bool(hold_pattern.call(clock.step))
-		scheduler.tick(clock, state)
-		sim.tick(state, intent, clock, level, SimClock.FIXED_DT)
-		clock.advance()
-	return state
+	return SimHarness.on(make_level.call(), seed_value).holding(hold_pattern).step(max_steps).state
 
 
 ## The load-bearing test: two runs with the same seed and the same intent

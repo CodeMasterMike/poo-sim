@@ -24,23 +24,8 @@ func _make_level() -> LevelDef:
 ## `swipe_pattern` is Callable(step) -> Vector2, so a waft is a pure function of
 ## the step exactly like the hold pattern.
 func _run(make_level: Callable, hold_pattern: Callable, swipe_pattern: Callable, steps: int) -> SimState:
-	var level: LevelDef = make_level.call()
-	var clock := SimClock.new(1337)
-	level.resolve_timeline(SimClock.FIXED_DT, clock.rng)
-	var state := SimState.for_level(level)
-	var sim := PushSim.new()
-	var scheduler := EventScheduler.new()
-	scheduler.load_timeline(level.timeline)
-	for _i in steps:
-		if state.phase != SimState.Phase.PLAYING:
-			break
-		var intent := PlayerIntent.new()
-		intent.holding = bool(hold_pattern.call(clock.step))
-		intent.swipe = swipe_pattern.call(clock.step)
-		scheduler.tick(clock, state)
-		sim.tick(state, intent, clock, level, SimClock.FIXED_DT)
-		clock.advance()
-	return state
+	return SimHarness.on(make_level.call()) \
+			.holding(hold_pattern).swiping(swipe_pattern).step(steps).state
 
 
 func _never_swipe() -> Callable:

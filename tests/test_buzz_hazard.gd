@@ -22,24 +22,10 @@ func _make_level() -> LevelDef:
 	return level
 
 
+## Never holding: the buzz is answered by a tap, and a held push would confound the
+## Composure reading its drain is measured against.
 func _run(tap_pattern: Callable, steps: int) -> SimState:
-	var level := _make_level()
-	var clock := SimClock.new(1337)
-	level.resolve_timeline(SimClock.FIXED_DT, clock.rng)
-	var state := SimState.for_level(level)
-	var sim := PushSim.new()
-	var scheduler := EventScheduler.new()
-	scheduler.load_timeline(level.timeline)
-	for _i in steps:
-		if state.phase != SimState.Phase.PLAYING:
-			break
-		var intent := PlayerIntent.new()
-		intent.holding = false
-		intent.tap = bool(tap_pattern.call(clock.step))
-		scheduler.tick(clock, state)
-		sim.tick(state, intent, clock, level, SimClock.FIXED_DT)
-		clock.advance()
-	return state
+	return SimHarness.on(_make_level()).tapping(tap_pattern).step(steps).state
 
 
 ## A tap dismisses it cleanly, at no Discretion cost.

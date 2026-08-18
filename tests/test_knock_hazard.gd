@@ -20,23 +20,11 @@ func _make_knock_level() -> LevelDef:
 	return level
 
 
+## `make_level` stays a Callable rather than a built level: the harness resolves the
+## timeline IN PLACE, so each run needs its own, and taking a factory makes that
+## impossible to get wrong at the call site.
 func _run(make_level: Callable, seed_value: int, hold_pattern: Callable, steps: int) -> SimState:
-	var level: LevelDef = make_level.call()
-	var clock := SimClock.new(seed_value)
-	level.resolve_timeline(SimClock.FIXED_DT, clock.rng)
-	var state := SimState.for_level(level)
-	var sim := PushSim.new()
-	var scheduler := EventScheduler.new()
-	scheduler.load_timeline(level.timeline)
-	for _i in steps:
-		if state.phase != SimState.Phase.PLAYING:
-			break
-		var intent := PlayerIntent.new()
-		intent.holding = bool(hold_pattern.call(clock.step))
-		scheduler.tick(clock, state)
-		sim.tick(state, intent, clock, level, SimClock.FIXED_DT)
-		clock.advance()
-	return state
+	return SimHarness.on(make_level.call(), seed_value).holding(hold_pattern).step(steps).state
 
 
 ## Releasing (no input) through the freeze passes the knock — Discretion untouched.

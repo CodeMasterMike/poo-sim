@@ -36,19 +36,7 @@ func _band_mid(level: LevelDef) -> float:
 ## Hold for `seconds` at a fixed needle height, with the needle PINNED — the point
 ## is to isolate fill from the needle physics, so each step re-clamps it.
 func _run_pinned(level: LevelDef, needle: float, seconds: float) -> SimState:
-	var state := SimState.for_level(level)
-	var clock := SimClock.new(1337)
-	var sim := PushSim.new()
-	var intent := PlayerIntent.new()
-	var steps := int(seconds / SimClock.FIXED_DT)
-	for _i in steps:
-		if state.phase != SimState.Phase.PLAYING:
-			break
-		state.needle = needle
-		state.needle_vel = 0.0
-		sim.tick(state, intent, clock, level, SimClock.FIXED_DT)
-		clock.advance()
-	return state
+	return SimHarness.on(level).pinned_at(needle).seconds(seconds).state
 
 
 # ------------------------------------------------------------------ fill rate
@@ -248,16 +236,10 @@ func test_a_mound_survives_letting_go() -> void:
 			"the firm pile should have converged, went %f -> %f" % [settled, kept.bowl_peak()])
 
 
-## Tick a state forward with the needle held on the floor.
+## Tick a state forward with the needle held on the floor — nothing coming out, so
+## whatever moves is the settle alone.
 func _idle(state: SimState, level: LevelDef, seconds: float) -> void:
-	var clock := SimClock.new(1337)
-	var sim := PushSim.new()
-	var intent := PlayerIntent.new()
-	for _i in int(seconds / SimClock.FIXED_DT):
-		state.needle = 0.0
-		state.needle_vel = 0.0
-		sim.tick(state, intent, clock, level, SimClock.FIXED_DT)
-		clock.advance()
+	SimHarness.continuing(state, level).pinned_at(0.0).seconds(seconds)
 
 
 ## The mean is mass-weighted, so a brief dribble can't re-grade a big firm pile.
@@ -270,14 +252,8 @@ func test_the_bowl_consistency_is_mass_weighted() -> void:
 	var runny := _level(0.0)
 	runny.thickness_push_gain = 0.0
 	state.thickness = 0.0
-	var clock := SimClock.new(1337)
-	var sim := PushSim.new()
-	var intent := PlayerIntent.new()
-	for _i in int(1.0 / SimClock.FIXED_DT):
-		state.needle = _band_mid(runny)
-		state.needle_vel = 0.0
-		sim.tick(state, intent, clock, runny, SimClock.FIXED_DT)
-		clock.advance()
+	# One second of runny dribble onto the firm pile that is already there.
+	SimHarness.continuing(state, runny).pinned_at(_band_mid(runny)).seconds(1.0)
 
 	assert_true(state.bowl_thickness < firm, "the dribble should have counted for something")
 	assert_true(state.bowl_thickness > firm * 0.7,
@@ -432,16 +408,12 @@ func _drop_span(level: LevelDef, needle: float, seconds: float) -> float:
 	return hi - lo
 
 
+## Where the stream landed on each step. Sampled a step at a time rather than in one
+## run, because the whole question is how the landing point MOVES over the stretch.
 func _drop_samples(level: LevelDef, needle: float, seconds: float) -> Array:
-	var state := SimState.for_level(level)
-	var clock := SimClock.new(1337)
-	var sim := PushSim.new()
-	var intent := PlayerIntent.new()
+	var run := SimHarness.on(level).pinned_at(needle)
 	var out := []
 	for _i in int(seconds / SimClock.FIXED_DT):
-		state.needle = needle
-		state.needle_vel = 0.0
-		sim.tick(state, intent, clock, level, SimClock.FIXED_DT)
-		clock.advance()
-		out.append(PushSim.drop_u(state, level))
+		run.step(1)
+		out.append(PushSim.drop_u(run.state, level))
 	return out

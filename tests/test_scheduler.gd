@@ -15,32 +15,12 @@ func suite_name() -> String:
 	return "scheduler"
 
 
-## A ready-to-tick rig: everything the loop needs, assembled the way the game
-## assembles it, so a test can step it and then look at BOTH the state and the
-## scheduler (`last_prompt` lives on the latter).
-class Rig extends RefCounted:
-	var level: LevelDef
-	var clock: SimClock
-	var state: SimState
-	var sim := PushSim.new()
-	var scheduler := EventScheduler.new()
-
-	func _init(level_def: LevelDef, seed_value: int = 1337) -> void:
-		level = level_def
-		clock = SimClock.new(seed_value)
-		level.resolve_timeline(SimClock.FIXED_DT, clock.rng)
-		state = SimState.for_level(level)
-		scheduler.load_timeline(level.timeline)
-
-	func step(n: int, holding: bool = false) -> void:
-		for _i in n:
-			if state.phase != SimState.Phase.PLAYING:
-				return
-			var intent := PlayerIntent.new()
-			intent.holding = holding
-			scheduler.tick(clock, state)
-			sim.tick(state, intent, clock, level, SimClock.FIXED_DT)
-			clock.advance()
+## A ready-to-tick rig — SimHarness, which is where this shape ended up living for
+## every suite. Kept as a local factory because these tests read BOTH the state and
+## the scheduler (`last_prompt` lives on the latter), and because a rig that steps
+## incrementally is the only way to assert on the moment an event fires.
+func _rig(level_def: LevelDef, seed_value: int = 1337) -> SimHarness:
+	return SimHarness.on(level_def, seed_value)
 
 
 const OPENING := Vector2(0.50, 0.72)
@@ -63,7 +43,7 @@ func _level(events: Array[SimEvent]) -> LevelDef:
 func test_a_flow_zone_event_with_no_ramp_snaps_the_band() -> void:
 	var moved := Vector2(0.20, 0.30)
 	# t=0.5s ⇒ fires on step 30.
-	var rig := Rig.new(_level([SimEvent.flow_zone(0.5, [moved] as Array[Vector2], 0.0)]))
+	var rig := _rig(_level([SimEvent.flow_zone(0.5, [moved] as Array[Vector2], 0.0)]))
 
 	rig.step(29)
 	assert_eq(rig.state.flow_bands[0], OPENING, "the band moved before its event fired")
@@ -75,7 +55,7 @@ func test_a_flow_zone_event_with_no_ramp_snaps_the_band() -> void:
 ## not already parked on the target.
 func test_a_ramped_flow_zone_eases_rather_than_jumping() -> void:
 	var moved := Vector2(0.20, 0.30)
-	var rig := Rig.new(_level([SimEvent.flow_zone(0.5, [moved] as Array[Vector2], 2.0)]))
+	var rig := _rig(_level([SimEvent.flow_zone(0.5, [moved] as Array[Vector2], 2.0)]))
 
 	rig.step(32)   # just past the trigger
 	var mid: Vector2 = rig.state.flow_bands[0]
@@ -95,7 +75,7 @@ func test_a_ramped_flow_zone_eases_rather_than_jumping() -> void:
 ## branch that had never run.
 func test_a_change_in_band_count_snaps_even_with_a_ramp() -> void:
 	var split: Array[Vector2] = [Vector2(0.30, 0.42), Vector2(0.62, 0.74)]
-	var rig := Rig.new(_level([SimEvent.flow_zone(0.5, split, 2.0)]))
+	var rig := _rig(_level([SimEvent.flow_zone(0.5, split, 2.0)]))
 
 	rig.step(32)
 	assert_eq(rig.state.flow_bands.size(), 2, "the split should have taken effect at once")
@@ -108,7 +88,7 @@ func test_a_change_in_band_count_snaps_even_with_a_ramp() -> void:
 ## A prompt goes up when its event fires and comes down `hold` seconds later.
 func test_a_prompt_shows_then_expires() -> void:
 	# t=0.5s ⇒ up on step 30; hold 2.0s ⇒ 120 steps ⇒ down on step 150.
-	var rig := Rig.new(_level([SimEvent.prompt(0.5, "THE FINAL PUSH", 2.0)]))
+	var rig := _rig(_level([SimEvent.prompt(0.5, "THE FINAL PUSH", 2.0)]))
 
 	rig.step(25)
 	assert_eq(rig.scheduler.last_prompt, "", "nothing should be showing before the event")
@@ -129,7 +109,7 @@ func test_a_prompt_shows_then_expires() -> void:
 ## instantly over an empty bowl.
 func test_a_meter_event_cannot_grant_relief() -> void:
 	expect_script_error_containing("RELIEF is not directly settable")
-	var rig := Rig.new(_level([SimEvent.meter(0.5, SimState.Meter.RELIEF, 100.0)]))
+	var rig := _rig(_level([SimEvent.meter(0.5, SimState.Meter.RELIEF, 100.0)]))
 
 	rig.step(60)
 	assert_eq(rig.state.relief, 0.0, "the event must not have granted any Relief")
@@ -140,7 +120,7 @@ func test_a_meter_event_cannot_grant_relief() -> void:
 ## The meters that ARE meters still take a delta, so refusing Relief didn't break
 ## the arm it lives on.
 func test_a_meter_event_still_moves_a_real_meter() -> void:
-	var rig := Rig.new(_level([SimEvent.meter(0.5, SimState.Meter.CLEANLINESS, -30.0)]))
+	var rig := _rig(_level([SimEvent.meter(0.5, SimState.Meter.CLEANLINESS, -30.0)]))
 
 	rig.step(25)
 	assert_eq(rig.state.cleanliness, 100.0, "untouched before the event")

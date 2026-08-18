@@ -22,24 +22,11 @@ func _make_level(displacement: float = 1.2) -> LevelDef:
 	return level
 
 
+## The seed matters here and nowhere else in this suite: the jolt rolls its
+## DIRECTION from it, so which way you get thrown is a property of the seed.
 func _run(seed_value: int, hold_pattern: Callable, swipe_pattern: Callable, steps: int) -> SimState:
-	var level := _make_level()
-	var clock := SimClock.new(seed_value)
-	level.resolve_timeline(SimClock.FIXED_DT, clock.rng)
-	var state := SimState.for_level(level)
-	var sim := PushSim.new()
-	var scheduler := EventScheduler.new()
-	scheduler.load_timeline(level.timeline)
-	for _i in steps:
-		if state.phase != SimState.Phase.PLAYING:
-			break
-		var intent := PlayerIntent.new()
-		intent.holding = bool(hold_pattern.call(clock.step))
-		intent.swipe = swipe_pattern.call(clock.step)
-		scheduler.tick(clock, state)
-		sim.tick(state, intent, clock, level, SimClock.FIXED_DT)
-		clock.advance()
-	return state
+	return SimHarness.on(_make_level(), seed_value) \
+			.holding(hold_pattern).swiping(swipe_pattern).step(steps).state
 
 
 func _no_swipe() -> Callable:
