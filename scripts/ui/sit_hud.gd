@@ -73,8 +73,7 @@ func draw(sim_state: SimState, level_def: LevelDef, sim_clock: SimClock,
 	var fr := state.flow_ratio()
 	VectorDraw.text(_ci, font, "Flow %d%%   ·   %.1fs" % [int(round(fr * 100.0)), clock.elapsed],
 			0, int(h * 0.88), w, int(h * 0.022), TEXT_DIM)
-	VectorDraw.text(_ci, font, "HOLD push  ·  release relax  ·  R restart  ·  1/2/3 level  ·  H manual  ·  B autoplay",
-			0, int(h * 0.93), w, int(h * 0.018), TEXT_DIM)
+	VectorDraw.text(_ci, font, _controls_hint(), 0, int(h * 0.93), w, int(h * 0.018), TEXT_DIM)
 	if autoplay:
 		VectorDraw.text(_ci, font, "· AUTOPLAY ·", 0, int(h * 0.85), w, int(h * 0.020), GOAL)
 
@@ -481,6 +480,22 @@ func _rank_title(result: Dictionary) -> String:
 # The meter ramp stays: it isn't a primitive, it's the state language from the
 # style guide (red below half, through amber, to green) and it means nothing
 # outside a meter.
+
+## The one-line controls strip along the bottom.
+##
+## The venue-key span is DERIVED from the roster rather than written out. It read
+## "1/2/3 level" as a literal, which was one of six places a level had to be
+## registered — and a hint promising three keys on a screen offering five is worse
+## than no hint, because a player trusts it. A single-venue roster drops the span
+## entirely instead of advertising a key that selects what is already playing.
+func _controls_hint() -> String:
+	var parts := ["HOLD push", "release relax", "R restart"]
+	var slots := LevelCatalog.key_slots()
+	if slots > 1:
+		parts.append("1-%d level" % slots)
+	parts.append_array(["H manual", "B autoplay"])
+	return "  ·  ".join(parts)
+
 
 func _meter_color(v: float) -> Color:
 	var f := clampf(v / 100.0, 0.0, 1.0)

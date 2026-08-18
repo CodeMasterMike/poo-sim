@@ -25,12 +25,13 @@ extends Control
 ## Resource with @export fields. Leave `tuning_override` empty to use its
 ## defaults — the same values the test suites read — or assign a .tres to
 ## experiment without editing code.
-## Which level content to run. GREYBOX runs the shared tuning unmodified, so it's
-## the level that shows you what a tuning change did; CHURCH and RAVE are the two
-## cover-window levels (same system at opposite polarity). All three are built the
-## same way, from the same tuning base. Switch at runtime with the 1 / 2 / 3 keys.
-enum LevelKind { GREYBOX, CHURCH, RAVE }
-@export var level_kind: LevelKind = LevelKind.GREYBOX
+## Which venue to run, named by its LevelCatalog id.
+##
+## The roster lives in scripts/content/level_catalog.gd and is the only place a
+## level is registered: add an entry there and it appears in the picker, on a
+## number key, in the field manual and in the HUD hint with no edit here. An
+## unknown id falls back to the first entry rather than failing to build.
+@export var level_id: StringName = &"greybox"
 
 ## Leave EMPTY for normal play: tuning then comes from data/levels/base_tuning.tres
 ## via Tuning.base(), which is also what the test suites read — one source, so the
@@ -112,7 +113,7 @@ func _ready() -> void:
 	add_child(_manual)
 	_picker = LevelPicker.new()
 	add_child(_picker)
-	_picker.setup(_level_names(), _current_level_index())
+	_picker.setup(LevelCatalog.names(), _current_level_index())
 	_picker.level_chosen.connect(_on_level_chosen)
 	if auto_play:
 		_set_auto_play(true)
@@ -237,12 +238,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			_reset()
 		elif event.keycode == KEY_B and event.pressed:
 			_set_auto_play(not auto_play)
-		elif event.keycode == KEY_1 and event.pressed:
-			_switch_level(LevelKind.GREYBOX)
-		elif event.keycode == KEY_2 and event.pressed:
-			_switch_level(LevelKind.CHURCH)
-		elif event.keycode == KEY_3 and event.pressed:
-			_switch_level(LevelKind.RAVE)
+		elif event.pressed:
+			# Number keys select a venue by its position in the roster. Derived from
+			# the catalog rather than a key per level, so registering the fourth
+			# venue puts it on the 4 key without an edit here — and a roster longer
+			# than nine simply stops handing out keys instead of misfiring.
+			var slot: int = event.keycode - KEY_0
+			if slot >= 1 and slot <= LevelCatalog.key_slots():
+				_switch_level(LevelCatalog.id_for_slot(slot))
 
 	# When the run is over, any fresh press retries.
 	if _state != null and _state.phase != SimState.Phase.PLAYING:
@@ -319,17 +322,12 @@ func _drain_intent() -> PlayerIntent:
 ## Every venue is built the same way: take the shared tuning base, hand it to the
 ## level's factory, let the factory specialise it. The base used to reach only the
 ## grey-box, so tuning it left the Church and the Rave on the code defaults.
+##
+## WHICH factory is the catalog's business, not this node's. The `match` that used
+## to stand here was the second of six places a venue had to be named, and the one
+## most likely to be updated correctly while the other five drifted.
 func _build_level() -> LevelDef:
-	var base := _tuning_base()
-	match level_kind:
-		LevelKind.CHURCH:
-			# Quiet room, exposed by default — a swell shields you.
-			return LevelChurch.build(base)
-		LevelKind.RAVE:
-			# The Church's inverse — covered by default, hushes expose you.
-			return LevelRave.build(base)
-		_:
-			return LevelGreybox.build(base)
+	return LevelCatalog.build(level_id, _tuning_base())
 
 
 ## The shared tuning, or this scene's experiment override if one is assigned.
@@ -367,37 +365,22 @@ func _draw() -> void:
 	_hud.draw(_state, _level, _clock, _scheduler, _frame, auto_play, vp.x, vp.y)
 
 
-
-
-
-
-func _level_display_name(kind: int) -> String:
-	match kind:
-		LevelKind.CHURCH:
-			return "Church"
-		LevelKind.RAVE:
-			return "Rave"
-		_:
-			return "Prototype"
-
-
-## The venue roster, in enum order — what the picker renders. Data-driven off
-## LevelKind, so a new level appears in the picker with no change here.
-func _level_names() -> PackedStringArray:
-	var names := PackedStringArray()
-	for kind in LevelKind.values():
-		names.append(_level_display_name(kind))
-	return names
-
-
+## Where the currently-running venue sits in the roster — the one place the host's
+## id and the picker's index are converted into each other.
 func _current_level_index() -> int:
-	return LevelKind.values().find(level_kind)
+	return LevelCatalog.index_of(level_id)
 
 
 ## Switch venue and restart, keeping the picker button/highlight in sync. The one
-## path used by both the 1/2/3 keys and a picker tap.
-func _switch_level(kind: int) -> void:
-	level_kind = kind as LevelKind
+## path used by both the number keys and a picker tap.
+##
+## An empty id is ignored rather than reset to the first venue: it means a key was
+## pressed for a slot the roster doesn't fill, and the honest response to that is
+## to keep playing the level you were on.
+func _switch_level(id: StringName) -> void:
+	if id.is_empty():
+		return
+	level_id = id
 	_reset()
 	if _picker != null:
 		_picker.set_current(_current_level_index())
@@ -405,7 +388,6 @@ func _switch_level(kind: int) -> void:
 
 func _on_level_chosen(index: int) -> void:
 	_manual.close()
-	_switch_level(LevelKind.values()[index])
-
-
-
+	var entry := LevelCatalog.at(index)
+	if entry != null:
+		_switch_level(entry.id)
