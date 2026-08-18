@@ -1,5 +1,5 @@
 class_name CoverWindowHazard
-extends RefCounted
+extends HazardOp
 ## The Cover Window — the Church's signature Sustained-Constraint hazard, and the
 ## first that SUPPRESSES a penalty instead of inflicting one.
 ##
@@ -12,34 +12,24 @@ extends RefCounted
 ## The window is NOT a reaction test: it just holds its phase, and PushSim/the view
 ## ask `Hazards.room_exposed(state, level)` — which resolves this window against the
 ## level's polarity, via `Hazards.acoustic_window_active(state)` — to know whether
-## it is currently safe to push. That's why it needs no `intent`: nothing the player
-## does resolves it; it simply expires.
+## it is currently safe to push. That's why it overrides no hooks at all beyond
+## arming: nothing the player does resolves it; it simply expires, and HazardOp's
+## bare phase machine is the entire behaviour.
 ##
 ## `scored = false`: a window ending is not a pass/fail, so it retires without the
 ## resolution flash and without touching the hazard tallies. TELEGRAPH is the cover
 ## building in (still silent — audible play is still heard); ACTIVE is the safe
 ## window; then it resolves back to silence.
 
-static func start(state: SimState, payload: SimEvent.CoverPayload) -> void:
-	var slot := HazardSlot.new()
-	slot.kind = SimEvent.Kind.COVER
-	slot.phase = HazardSlot.Phase.TELEGRAPH
-	slot.timer = payload.telegraph
-	slot.active_len = payload.duration
+
+func kind() -> int:
+	return SimEvent.Kind.COVER
+
+
+func arm(_state: SimState, payload: RefCounted, _clock: SimClock) -> HazardSlot:
+	var p := payload as SimEvent.CoverPayload
+	if p == null:
+		return null
+	var slot: HazardSlot = new_slot(p.telegraph, p.duration)
 	slot.scored = false
-	state.hazards.append(slot)
-
-
-static func tick(slot: HazardSlot, dt: float) -> void:
-	match slot.phase:
-		HazardSlot.Phase.TELEGRAPH:
-			slot.timer -= dt
-			if slot.timer <= 0.0:
-				slot.phase = HazardSlot.Phase.ACTIVE
-				slot.timer = slot.active_len
-		HazardSlot.Phase.ACTIVE:
-			slot.timer -= dt
-			if slot.timer <= 0.0:
-				slot.phase = HazardSlot.Phase.RESOLVED
-		_:
-			pass
+	return slot

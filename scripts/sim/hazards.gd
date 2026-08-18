@@ -2,29 +2,60 @@ class_name Hazards
 extends RefCounted
 ## Dispatch layer for in-flight hazards. One place decides which operator ticks
 ## which slot, so PushSim stays a single ordered mutation path (determinism) and
-## adding a hazard is "one arm each here + one operator file" — no changes to
-## SimState or PushSim.
+## adding a hazard is "one operator file + one line in the table below" — no
+## changes to SimState or PushSim.
+##
+## That table replaced two hand-maintained `match` statements — one to arm a
+## hazard, one to tick it — which between them named every kind twice. A hazard
+## registered in the first and forgotten in the second would arm and then sit
+## there, permanently in TELEGRAPH, doing nothing and never retiring: a bug with no
+## error and no crash. There is now one list, and the operator declares its own
+## kind, so the two cannot disagree.
 ##
 ## The SimClock is threaded through so hazards can pull from the match-seeded RNG
 ## (the Jolt rolls its direction). Any hazard randomness must come from there,
 ## never a global randf(), or replays and mirrored boards break.
 
+## THE registry: one stateless operator per hazard kind. Add a hazard by appending
+## its operator here — it keys itself off its own `kind()`.
+##
+## Operators hold no state (all of it lives on the HazardSlot), so one shared
+## instance serves every slot of that kind for the life of the process. Built lazily
+## because a `const` can't hold object instances.
+static var _ops: Dictionary = {}
+
+
+static func _table() -> Dictionary:
+	if _ops.is_empty():
+		for op in [
+			KnockHazard.new(),
+			SmellCloudHazard.new(),
+			JoltHazard.new(),
+			BuzzHazard.new(),
+			CoverWindowHazard.new(),
+		]:
+			_ops[op.kind()] = op
+	return _ops
+
+
+## The operator for a kind, or null for the reserved-but-unimplemented rest of the
+## catalog. Callers treat null as "nothing to do", which is what an event naming a
+## hazard this build doesn't have yet should do — a forward-compatible level or
+## ghost is the whole reason SimEvent.Kind reserves those slots.
+static func operator_for(kind: int) -> HazardOp:
+	return _table().get(kind)
+
+
 ## Arm a hazard from its payload, whether that came from the timeline or from
 ## emergent play (see PushSim's smell charge).
 static func start(state: SimState, kind: int, payload: RefCounted, clock: SimClock) -> void:
-	match kind:
-		SimEvent.Kind.KNOCK:
-			KnockHazard.start(state, payload as SimEvent.KnockPayload)
-		SimEvent.Kind.SMELL:
-			SmellCloudHazard.start(state, payload as SimEvent.SmellPayload)
-		SimEvent.Kind.JOLT:
-			JoltHazard.start(state, payload as SimEvent.JoltPayload, clock)
-		SimEvent.Kind.BUZZ:
-			BuzzHazard.start(state, payload as SimEvent.BuzzPayload, clock)
-		SimEvent.Kind.COVER:
-			CoverWindowHazard.start(state, payload as SimEvent.CoverPayload)
-		_:
-			pass  # the rest of the catalog: slots reserved, no operators yet
+	var op: HazardOp = operator_for(kind)
+	if op == null:
+		return
+	var slot: HazardSlot = op.arm(state, payload, clock)
+	if slot == null:
+		return   # a payload of the wrong type: drop it rather than arm a half-built slot
+	state.hazards.append(slot)
 
 
 ## Advance every in-flight hazard, then retire the resolved ones.
@@ -33,19 +64,9 @@ static func tick(state: SimState, intent: PlayerIntent, level: LevelDef, clock: 
 	for slot in state.hazards:
 		if slot.phase == HazardSlot.Phase.RESOLVED:
 			continue
-		match slot.kind:
-			SimEvent.Kind.KNOCK:
-				KnockHazard.tick(state, slot, intent, level, dt)
-			SimEvent.Kind.SMELL:
-				SmellCloudHazard.tick(state, slot, intent, level, dt)
-			SimEvent.Kind.JOLT:
-				JoltHazard.tick(state, slot, intent, level, clock, dt)
-			SimEvent.Kind.BUZZ:
-				BuzzHazard.tick(state, slot, intent, level, clock, dt)
-			SimEvent.Kind.COVER:
-				CoverWindowHazard.tick(slot, dt)
-			_:
-				pass
+		var op: HazardOp = operator_for(slot.kind)
+		if op != null:
+			op.tick(state, slot, intent, level, clock, dt)
 	_sweep(state)
 
 

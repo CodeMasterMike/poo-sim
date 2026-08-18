@@ -1,5 +1,5 @@
 class_name JoltHazard
-extends RefCounted
+extends HazardOp
 ## Jolt / Turbulence — a Reflex hazard that attacks The Push itself rather than a
 ## meter. Turbulence, a passing truck, a wobbling porta-potty: the needle gets
 ## shoved and you have a moment to drag it back.
@@ -29,39 +29,46 @@ extends RefCounted
 const FULL_SHAKE_IMPULSE: float = 1.2
 
 
-static func start(state: SimState, payload: SimEvent.JoltPayload, _clock: SimClock) -> void:
-	var slot := HazardSlot.new()
-	slot.kind = SimEvent.Kind.JOLT
-	slot.phase = HazardSlot.Phase.TELEGRAPH
-	slot.timer = payload.telegraph
-	slot.active_len = payload.window
-	slot.cost = payload.displacement
-	state.hazards.append(slot)
+func kind() -> int:
+	return SimEvent.Kind.JOLT
 
 
-static func tick(state: SimState, slot: HazardSlot, intent: PlayerIntent, level: LevelDef,
-		clock: SimClock, dt: float) -> void:
-	match slot.phase:
-		HazardSlot.Phase.TELEGRAPH:
-			slot.timer -= dt
-			if slot.timer <= 0.0:
-				slot.phase = HazardSlot.Phase.ACTIVE
-				slot.timer = slot.active_len
-				# It lands: shove the needle, direction from the seeded RNG.
-				var dir := 1.0 if clock.rng.randf() < 0.5 else -1.0
-				state.needle_vel += slot.cost * dir
-		HazardSlot.Phase.ACTIVE:
-			if intent.swipe.length() >= level.swipe_min:
-				_recenter(state, level)
-				slot.phase = HazardSlot.Phase.RESOLVED
-				return
-			slot.timer -= dt
-			if slot.timer <= 0.0:
-				# No save. You're left wherever it put you — that IS the cost.
-				slot.failed = true
-				slot.phase = HazardSlot.Phase.RESOLVED
-		_:
-			pass
+func arm(_state: SimState, payload: RefCounted, _clock: SimClock) -> HazardSlot:
+	var p := payload as SimEvent.JoltPayload
+	if p == null:
+		return null
+	return new_slot(p.telegraph, p.window, p.displacement)
+
+
+## The ONE hazard that checks its phase here, and it has to.
+##
+## HazardOp answers a hazard in either phase because reacting early is normally a
+## virtue. Not for a jolt: there is nothing to swipe back until it has actually
+## thrown you, so a swipe during the telegraph would retire the slot before
+## `on_arrive` ever ran — the needle would never be shoved, and bracing early would
+## make the hazard vanish rather than survive it.
+func resolved_by_player(state: SimState, slot: HazardSlot, intent: PlayerIntent,
+		level: LevelDef, _clock: SimClock, _dt: float) -> bool:
+	if slot.phase != HazardSlot.Phase.ACTIVE:
+		return false
+	if intent.swipe.length() < level.swipe_min:
+		return false
+	_recenter(state, level)
+	return true
+
+
+## It lands: shove the needle, direction from the seeded RNG.
+func on_arrive(state: SimState, slot: HazardSlot, _intent: PlayerIntent, _level: LevelDef,
+		clock: SimClock, _dt: float) -> void:
+	var dir := 1.0 if clock.rng.randf() < 0.5 else -1.0
+	state.needle_vel += slot.cost * dir
+
+
+## No save. You're left wherever it put you — that IS the cost, so nothing is
+## charged here beyond recording the miss.
+func on_lapse(_state: SimState, slot: HazardSlot, _intent: PlayerIntent, _level: LevelDef,
+		_clock: SimClock, _dt: float) -> void:
+	slot.failed = true
 
 
 ## Kill the imparted momentum and drag the needle back toward the Flow band.

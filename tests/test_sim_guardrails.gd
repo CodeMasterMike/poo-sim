@@ -92,8 +92,13 @@ func test_the_sim_touches_no_scene_tree() -> void:
 ## Every sim class is a RefCounted or a Resource — never a Node. This is the same
 ## guarantee as above stated positively, and it is the one that would catch someone
 ## "just" making a hazard a Node so it could have a timer.
+##
+## HazardOp is admitted as a base because the hazard operators extend it, and the
+## test below pins HazardOp itself to RefCounted — so the chain still terminates
+## somewhere pure. Add a name here ONLY alongside that kind of proof; an unchecked
+## entry turns this guard into a list of exceptions.
 func test_every_sim_class_is_refcounted_or_resource() -> void:
-	var allowed := ["RefCounted", "Resource"]
+	var allowed := ["RefCounted", "Resource", "HazardOp"]
 	var bad := PackedStringArray()
 	for path in _gd_files(SIM_DIR):
 		var base := ""
@@ -104,6 +109,20 @@ func test_every_sim_class_is_refcounted_or_resource() -> void:
 		if not allowed.has(base):
 			bad.append("%s extends %s" % [path.get_file(), base if base != "" else "<nothing>"])
 	assert_eq(bad.size(), 0, "sim classes must be RefCounted or Resource:\n    %s" % "\n    ".join(bad))
+
+
+## The base the hazard operators extend, pinned to RefCounted — the proof the
+## allowlist above leans on. Without this, admitting "HazardOp" as a base would let
+## someone make HazardOp a Node and take all five hazards out of the sim with it,
+## and the guard above would still pass.
+func test_the_hazard_base_is_itself_refcounted() -> void:
+	var base := ""
+	for line in _code_lines("res://scripts/sim/hazards/hazard_op.gd"):
+		if line.begins_with("extends "):
+			base = line.substr(8).strip_edges()
+			break
+	assert_eq(base, "RefCounted",
+			"HazardOp extends %s — the allowlist's exemption is no longer safe" % base)
 
 
 # ------------------------------------------------------------------- determinism

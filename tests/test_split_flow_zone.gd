@@ -129,7 +129,11 @@ func test_a_jolt_recentre_does_not_land_in_the_notch() -> void:
 
 	var intent := PlayerIntent.new()
 	intent.swipe = Vector2(level.swipe_min + 10.0, 0.0)
-	JoltHazard.tick(state, slot, intent, level, SimClock.new(1337), SimClock.FIXED_DT)
+	# Through the registry, not a direct class call: the operator this drives must be
+	# the one the sim actually dispatches, or the test could pass against an operator
+	# no longer wired to SimEvent.Kind.JOLT.
+	Hazards.operator_for(SimEvent.Kind.JOLT).tick(
+			state, slot, intent, level, SimClock.new(1337), SimClock.FIXED_DT)
 
 	assert_eq(slot.phase, HazardSlot.Phase.RESOLVED, "the swipe should have answered the jolt")
 	assert_eq(PushSim.zone_of(state), PushSim.ZONE_FLOW,
