@@ -105,6 +105,42 @@ extends Resource
 ## solid barely creeps, so a mound you build stays built.
 @export var slump_relax_runny: float = 0.85
 @export var slump_relax_solid: float = 0.22
+
+# --- Chunking (see BowlChunk and PushSim._deposit) ---
+## Solid matter leaves in pieces. Below `chunk_thickness_floor` nothing chunks at
+## all and the deposit path is the continuous drizzle it has always been — that
+## split is deliberate and is the whole visual language of consistency: runny is a
+## smooth rope and a flat pool, solid is lumps that tumble and stack with gaps.
+##
+## Set `chunk_mass` to 0 to switch chunking off entirely and get the old
+## pour-only behaviour back, tuning-only, with no code path removed.
+@export var chunk_thickness_floor: float = 0.42
+## Mass of one lump at FULL solid, in column-heights, scaled down toward the floor.
+## A whole bowlful is BOWL_COLUMNS (24) of these units and a run finishes around
+## two-thirds of that, so 0.32 is roughly fifty lumps over a sit — often enough to
+## read as a stream of them, rare enough that each one is a visible event.
+@export var chunk_mass: float = 0.32
+## How much lump size varies, as a fraction either side. Must stay below 1.0 or a
+## chunk can be rolled at zero mass and the emission loop stops making progress.
+@export var chunk_mass_vary: float = 0.45
+## Half the footprint of a nominal chunk, in bowl-widths. Also what the view sizes
+## the drawn lumps from, so what you see is the width of what actually landed.
+@export var chunk_spread: float = 0.052
+## How far off your aim a lump can break, in bowl-widths either side. This is the
+## "it lands crooked" roll. Keep it well under a quarter of the bowl: aiming has to
+## still be worth something, and past that the scatter grades the pile flat on its
+## own and a firm sit stops stacking faster than a runny one.
+@export var chunk_scatter: float = 0.075
+## Seconds from the exit to the surface. Purely how long it hangs in the air.
+@export var chunk_fall_time: float = 0.26
+## How much wider than itself a lump spreads when it hits. 1.0 deposits exactly
+## the silhouette you watched fall; above that it flattens on impact, which is both
+## what a soft lump does and the knob that controls how COARSE the pile's growth
+## is. A chunk lands all at once, so the pile's peak — and therefore `progress`,
+## and therefore any timeline event keyed on it — advances in steps rather than
+## continuously. Undiluted, one lump could jump progress by seven points and an
+## event authored at 20% could fire at 27%. At 2.2 the worst step is under four.
+@export var chunk_squash: float = 2.2
 # --- Where the stream lands (see PushSim._update_sway) ---
 ## The landing point wavers around the CENTRE of the bowl. It deliberately does
 ## not track needle height: aiming isn't what a harder push does, so force buys

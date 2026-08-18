@@ -56,6 +56,25 @@ var bowl: PackedFloat32Array = PackedFloat32Array()
 ## weight against).
 var bowl_thickness: float = 0.5
 
+## Lumps in the air, oldest first. Solid matter breaks off in pieces rather than
+## pouring, so between leaving you and reaching the surface a chunk's mass is in
+## NEITHER `relief`'s pile nor anywhere else — see chunk_mass() and BowlChunk.
+##
+## Runny never puts anything here: below `LevelDef.chunk_thickness_floor` the
+## deposit path stays the continuous drizzle it always was.
+var chunks: Array[BowlChunk] = []
+
+## Matter accumulated at the exit but not yet heavy enough to break off, and the
+## mass the NEXT chunk will be. `chunk_target` is rolled one lump ahead, at the
+## moment its predecessor detaches: that keeps chunk sizes varied without ever
+## making the emission loop's exit condition depend on a roll taken inside it.
+##
+## Both are real matter that has already been counted into `relief`. Neither may
+## be dropped on a consistency change — see PushSim._deposit, which flushes the
+## pending mass into the bowl the moment the exit goes runny.
+var chunk_pending: float = 0.0
+var chunk_target: float = 0.0
+
 ## Where the stream is landing, as an offset either side of the bowl's centre.
 ## It is never a function of how HIGH the needle is — pushing harder doesn't aim
 ## you sideways, it just makes you a worse nozzle — so this wanders around the
@@ -171,6 +190,20 @@ func bowl_mass() -> float:
 	var total := 0.0
 	for v in bowl:
 		total += v
+	return total
+
+
+## Matter that has left you but has not landed yet: lumps still in the air, plus
+## the piece still forming at the exit.
+##
+## The conservation invariant is now `bowl_mass() + chunk_mass()`, not bowl_mass()
+## alone. Chunking put a real gap between "evacuated" and "in the pile" — a tenth
+## of a second, but the tests check it every step, and a check that quietly stopped
+## balancing would be the first thing to hide a leak in the deposit path.
+func chunk_mass() -> float:
+	var total := chunk_pending
+	for chunk in chunks:
+		total += chunk.mass
 	return total
 
 

@@ -162,13 +162,18 @@ func test_thickness_lags_the_needle() -> void:
 
 ## The load-bearing invariant: the settle redistributes, it never creates. If this
 ## fails, a loose pile could reach the rim on less Relief than it should.
+##
+## `bowl_mass() + chunk_mass()` since chunking landed — a lump in the air, and the
+## piece still forming at the exit, are both matter that Relief has already been
+## billed for and that the heightfield has not received yet.
 func test_the_settle_conserves_mass() -> void:
 	var level := _level()
 	var state := _run_pinned(level, 0.85, 10.0)
 	var expected := state.relief / 100.0 * float(SimState.BOWL_COLUMNS)
+	var held := state.bowl_mass() + state.chunk_mass()
 
-	assert_true(absf(state.bowl_mass() - expected) < 0.001,
-			"bowl holds %f, Relief says %f" % [state.bowl_mass(), expected])
+	assert_true(absf(held - expected) < 0.001,
+			"bowl + air hold %f, Relief says %f" % [held, expected])
 
 
 ## Runny self-levels into a flat pool; solid holds a mound where it landed. This
@@ -417,3 +422,156 @@ func _drop_samples(level: LevelDef, needle: float, seconds: float) -> Array:
 		run.step(1)
 		out.append(PushSim.drop_u(run.state, level))
 	return out
+
+
+# ------------------------------------------------------------------- chunking
+
+## The consistency split that the whole look rests on: runny pours, solid breaks
+## off. If this ever stops being true, the stream and the pile silently go back to
+## describing one material.
+func test_runny_pours_and_solid_breaks_off() -> void:
+	var runny := _level(0.0)
+	runny.thickness_push_gain = 0.0
+	var solid := _level(1.0)
+	solid.thickness_push_gain = 0.0
+	var mid := _band_mid(solid)
+
+	assert_eq(PushSim.chunk_size(SimState.for_level(runny), runny), 0.0,
+			"runny must never form a lump")
+	assert_gt(PushSim.chunk_size(SimState.for_level(solid), solid), 0.0,
+			"solid must form lumps")
+
+	var poured := _run_pinned(runny, mid, 6.0)
+	assert_eq(poured.chunk_mass(), 0.0, "a runny run left matter stuck at the exit")
+	assert_gt(poured.bowl_mass(), 0.0, "a runny run put nothing in the bowl")
+
+
+## A lump is heavy enough to be a countable event, not a per-tick drizzle wearing a
+## costume. Both bounds matter: too few and the pile grows in visible jumps you
+## can't aim between, too many and the emission loop is allocating a BowlChunk
+## several times a frame (which is exactly what an early cut did — see
+## PushSim.CHUNK_MIN_FRACTION).
+func test_solid_leaves_in_a_countable_number_of_lumps() -> void:
+	var solid := _level(1.0)
+	solid.thickness_push_gain = 0.0
+	var run := SimHarness.on(solid).pinned_at(_band_mid(solid))
+	var lumps := 0
+	var seen := 0
+	for _i in int(10.0 / SimClock.FIXED_DT):
+		run.step(1)
+		var now: int = run.state.chunks.size()
+		if now > seen:
+			lumps += now - seen
+		seen = now
+
+	assert_gt(lumps, 8, "a whole solid run broke off only %d lumps" % lumps)
+	assert_true(lumps < 200, "%d lumps in ten seconds is a drizzle, not chunks" % lumps)
+
+
+## The landing point is scattered off the aim — this is the randomness the pile's
+## shape is built from. Asserted as a SPREAD, not as a fixed offset: the roll is
+## seeded, so what has to hold is that lumps go to different places, not that any
+## particular one goes anywhere in particular.
+func test_lumps_land_scattered_around_the_aim() -> void:
+	var solid := _level(1.0)
+	solid.thickness_push_gain = 0.0
+	var run := SimHarness.on(solid).pinned_at(_band_mid(solid))
+	# Identified by instance rather than by a zero fall time: a lump emitted this
+	# step has ALREADY been advanced by _fall_chunks before the step returns, so it
+	# is never observable at fall == 0.
+	var seen := {}
+	var offsets: Array[float] = []
+	for _i in int(10.0 / SimClock.FIXED_DT):
+		run.step(1)
+		for c in run.state.chunks:
+			var id: int = c.get_instance_id()
+			if not seen.has(id):
+				seen[id] = true
+				offsets.append(c.u - c.from_u)
+
+	assert_gt(offsets.size(), 5, "no lumps to measure")
+	var lo := 1.0
+	var hi := -1.0
+	for o in offsets:
+		lo = minf(lo, o)
+		hi = maxf(hi, o)
+	assert_gt(hi - lo, solid.chunk_scatter, "lumps all broke off in the same direction")
+	assert_true(hi <= solid.chunk_scatter + 0.001 and lo >= -solid.chunk_scatter - 0.001,
+			"a lump scattered further than the level allows (%f..%f)" % [lo, hi])
+
+## Matter ARRIVES IN LUMPS. This is the behavioural core of the whole change, and
+## the thing every other part of it sits on: the pile grows in visible steps, the
+## drawn cobbles have discrete landings to sit on, and `progress` therefore advances
+## in jumps rather than as a smooth ramp.
+##
+## Asserted as the shape of the arrivals, not as surface roughness. Roughness looked
+## like the obvious measure and is a bad one: a lump lands over a squashed footprint
+## several columns wide, so it is actually a SMOOTHER deposit than the pour's
+## two-column trickle, and which of the two reads rougher flips depending on when
+## you sample. What is unambiguously true is that the bowl spends most of its ticks
+## receiving nothing at all, and then takes a whole lump at once.
+func test_matter_arrives_in_lumps_not_as_a_trickle() -> void:
+	var solid := _level(1.0)
+	solid.thickness_push_gain = 0.0
+	var run := SimHarness.on(solid).pinned_at(_band_mid(solid))
+	var quiet := 0
+	var arrivals := 0
+	var biggest := 0.0
+	var held := 0.0
+	for _i in int(8.0 / SimClock.FIXED_DT):
+		run.step(1)
+		var now: float = run.state.bowl_mass()
+		var gained := now - held
+		held = now
+		if gained < 0.0001:
+			quiet += 1
+		else:
+			arrivals += 1
+			biggest = maxf(biggest, gained)
+
+	assert_gt(arrivals, 4, "nothing ever landed")
+	assert_gt(quiet, arrivals * 3,
+			"the bowl received something on %d of %d ticks — that is a trickle, not lumps"
+					% [arrivals, arrivals + quiet])
+	# And each arrival is a real piece of the bowl, not a rounding error.
+	assert_gt(biggest, 0.05, "the biggest single arrival was only %f" % biggest)
+
+
+## The pour path is unchanged, and that is what keeps runny reading as it always
+## did: a loose stool trickles in every tick it is producing.
+func test_runny_still_arrives_every_tick() -> void:
+	var runny := _level(0.0)
+	runny.thickness_push_gain = 0.0
+	var run := SimHarness.on(runny).pinned_at(_band_mid(runny))
+	var quiet := 0
+	var held := 0.0
+	for _i in 240:
+		run.step(1)
+		var now: float = run.state.bowl_mass()
+		if now - held < 0.0000001:
+			quiet += 1
+		held = now
+
+	assert_true(quiet < 12, "a runny stream skipped %d of 240 ticks" % quiet)
+
+
+## Matter in the air is matter that has left you and not arrived. It must be
+## counted, and it must not sit there: a consistency change that stranded the
+## pending lump at the exit would leak Relief the bowl never receives.
+func test_nothing_is_stranded_at_the_exit_when_the_consistency_drops() -> void:
+	var solid := _level(1.0)
+	solid.thickness_push_gain = 0.0
+	var state := _run_pinned(solid, _band_mid(solid), 5.0)
+	assert_gt(state.chunk_mass(), 0.0, "nothing was in flight or forming to strand")
+
+	# Now feed it runny — which takes the pour path and must flush what was pending.
+	var runny := _level(0.0)
+	runny.thickness_push_gain = 0.0
+	state.thickness = 0.0
+	SimHarness.continuing(state, runny).pinned_at(_band_mid(runny)).seconds(2.0)
+
+	assert_eq(state.chunk_pending, 0.0, "the half-formed lump was left at the exit")
+	var expected := state.relief / 100.0 * float(SimState.BOWL_COLUMNS)
+	var held := state.bowl_mass() + state.chunk_mass()
+	assert_true(absf(held - expected) < 0.001,
+			"bowl + air hold %f, Relief says %f" % [held, expected])

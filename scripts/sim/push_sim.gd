@@ -17,6 +17,20 @@ const ZONE_RED := 2
 ## dip is counted — hysteresis so one sustained detection isn't counted twice.
 const DETECT_RECOVER_MARGIN: float = 10.0
 
+## The smallest lump that may break off, as a fraction of `LevelDef.chunk_mass`.
+##
+## Not a cosmetic minimum — it is a HARD floor on the emission loop, and the loop
+## is not safe without it. `chunk_size` eases to zero at the consistency threshold,
+## and the loop that drains the pending mass runs pending/target times: with the
+## needle parked where thickness settles a hair above the floor, that was tens of
+## thousands of BowlChunk allocations in ONE tick. It froze the editor outright the
+## first time the suite was run against it.
+##
+## So chunking switches on at a quarter-sized pellet rather than easing up from
+## nothing. That is also the better read — the alternative was an invisible drizzle
+## of sub-pixel crumbs that looked exactly like the pour it replaced.
+const CHUNK_MIN_FRACTION: float = 0.25
+
 
 func tick(state: SimState, intent: PlayerIntent, clock: SimClock, level: LevelDef, dt: float) -> void:
 	if state.phase != SimState.Phase.PLAYING:
@@ -87,7 +101,13 @@ func tick(state: SimState, intent: PlayerIntent, clock: SimClock, level: LevelDe
 			state.total_fill += gained
 			if zone == ZONE_FLOW:
 				state.flow_fill += gained
-			_deposit(state, level, gained)
+			_deposit(state, level, clock, gained)
+
+	# --- Lumps already in the air keep falling regardless of the freeze above: a
+	#     Knock interrupts what you're doing, it doesn't suspend a chunk halfway
+	#     down the bowl. Landing happens BEFORE the settle, so a lump that touches
+	#     down this step is settled and measured this step. ---
+	_fall_chunks(state, level, dt)
 
 	# --- The bowl keeps settling even while the fill is frozen: a runny pool is
 	#     still finding its level whether or not you're producing. ---
@@ -304,32 +324,159 @@ func _update_thickness(state: SimState, level: LevelDef, dt: float) -> void:
 	state.thickness += (target - state.thickness) * clampf(level.thickness_ease * dt, 0.0, 1.0)
 
 
-## Drop `gained` percent of Relief into the bowl, at the column the stream is
-## currently landing on. Split across two columns so the landing point slides
-## smoothly with the needle instead of snapping between buckets.
-func _deposit(state: SimState, level: LevelDef, gained: float) -> void:
+## How big a lump breaks off at the current consistency, in column-heights.
+##
+## Zero below the level's `chunk_thickness_floor`, and eased in above it rather
+## than switched: a stool crossing the threshold should start shedding small lumps
+## out of the drizzle, not go from a smooth rope to full logs in one frame.
+##
+## Static and public because the VIEW asks it too — it sizes the drawn lumps and
+## cross-fades the falling rope against them off this exact number, so what you
+## see chunking is what is actually chunking.
+static func chunk_size(state: SimState, level: LevelDef) -> float:
+	if level.chunk_mass <= 0.0:
+		return 0.0
+	var solid: float = smoothstep(level.chunk_thickness_floor, 1.0, state.thickness)
+	if solid <= 0.0:
+		return 0.0
+	return level.chunk_mass * lerpf(CHUNK_MIN_FRACTION, 1.0, solid)
+
+
+## Move `gained` percent of Relief out of you and toward the bowl.
+##
+## Two paths, chosen by consistency, and the split is the point:
+##
+##   Runny — a continuous drizzle straight into the heightfield at the column the
+##   stream is landing on, split across two columns so the landing point slides
+##   smoothly instead of snapping between buckets. This is verbatim what the whole
+##   deposit used to be, and it still runs unchanged for a loose stool.
+##
+##   Solid — matter piles up at the exit until it is heavy enough to detach, then
+##   leaves as a BowlChunk with its own mass, its own footprint, and a landing spot
+##   rolled off the aim. Nothing reaches the bowl until that lump touches down.
+func _deposit(state: SimState, level: LevelDef, clock: SimClock, gained: float) -> void:
 	var cols := state.bowl.size()
 	if cols <= 0 or gained <= 0.0:
 		return
 	# 100% Relief fills the bowl to the rim, so one column-height is 100/cols percent.
 	var units := gained * float(cols) / 100.0
 
+	var lump: float = chunk_size(state, level)
+	if lump <= 0.0:
+		# Runny. Anything a firmer moment left half-formed goes down with it —
+		# otherwise easing back to loose would strand that mass at the exit forever
+		# and quietly break conservation.
+		_land(state, level, drop_u(state, level), 0.0, units + state.chunk_pending,
+				state.thickness)
+		state.chunk_pending = 0.0
+		state.chunk_target = 0.0
+		return
+
+	state.chunk_pending += units
+	while true:
+		if state.chunk_target <= 0.0:
+			state.chunk_target = lump * (1.0 + level.chunk_mass_vary
+					* clock.rng.randf_range(-1.0, 1.0))
+		# A `vary` of 1.0 or more could roll this to zero or negative, and the loop
+		# would then never consume anything. Tuning is not allowed to hang the sim.
+		if state.chunk_target <= 0.0:
+			state.chunk_target = lump
+		if state.chunk_pending < state.chunk_target:
+			return
+		state.chunk_pending -= state.chunk_target
+		_break_off(state, level, clock, state.chunk_target)
+		state.chunk_target = 0.0
+
+
+## Detach one lump. Every roll it will ever need is taken here, once, from the
+## match-seeded clock — so a chunk in flight is inert data and a replay drops the
+## identical piece in the identical place.
+func _break_off(state: SimState, level: LevelDef, clock: SimClock, mass: float) -> void:
+	var chunk := BowlChunk.new()
+	chunk.mass = mass
+	chunk.thickness = state.thickness
+	chunk.from_u = drop_u(state, level)
+	# It comes away crooked. This is the randomness the pile's shape is built out
+	# of: aim still decides roughly where the mound grows, but no two lumps land on
+	# the same column, so the surface is scattered instead of coned.
+	chunk.u = clampf(chunk.from_u
+			+ clock.rng.randf_range(-level.chunk_scatter, level.chunk_scatter), 0.02, 0.98)
+	# Sub-linear in mass — twice the matter is only ~1.4x the footprint — so a big
+	# lump stands up rather than spreading itself thin.
+	chunk.half = level.chunk_spread * sqrt(mass / maxf(0.0001, level.chunk_mass))
+	chunk.fall_rate = 1.0 / maxf(0.05, level.chunk_fall_time)
+	chunk.grain = clock.rng.randf()
+	state.chunks.append(chunk)
+
+
+## Advance everything in the air and land whatever arrives this step.
+##
+## Deliberately NOT gated on the freeze that stops relief: a Knock at the door
+## interrupts what you are doing, it does not suspend a lump halfway down the bowl.
+func _fall_chunks(state: SimState, level: LevelDef, dt: float) -> void:
+	if state.chunks.is_empty():
+		return
+	var airborne: Array[BowlChunk] = []
+	for chunk in state.chunks:
+		chunk.fall += chunk.fall_rate * dt
+		if chunk.fall < 1.0:
+			airborne.append(chunk)
+		else:
+			_land(state, level, chunk.u, chunk.half * level.chunk_squash, chunk.mass,
+					chunk.thickness)
+	state.chunks = airborne
+
+
+## Put `units` of matter into the bowl, centred on `u`, over a half-width of `half`
+## bowl-fractions, and grade the bowl's own consistency by what just arrived.
+func _land(state: SimState, _level: LevelDef, u: float, half: float, units: float,
+		thickness: float) -> void:
+	if units <= 0.0:
+		return
 	# The bowl takes on the consistency of what lands in it, weighted by mass. A
 	# late dribble of runny can't re-grade a firm mound, and — the reason this is
 	# tracked separately from `thickness` at all — the pile doesn't liquefy the
 	# moment you let go and the exit goes runny.
 	var held := state.bowl_mass()
-	state.bowl_thickness = (state.bowl_thickness * held + state.thickness * units) \
+	state.bowl_thickness = (state.bowl_thickness * held + thickness * units) \
 			/ maxf(0.000001, held + units)
+	_spread(state, u, half, units)
 
-	var drop := drop_u(state, level) * float(cols - 1)
-	var i := clampi(int(floor(drop)), 0, cols - 1)
-	var f := drop - float(i)
-	if i + 1 < cols:
-		state.bowl[i] += units * (1.0 - f)
-		state.bowl[i + 1] += units * f
-	else:
-		state.bowl[i] += units
+
+## Spread `units` across the columns under a landing, conserving mass exactly.
+##
+## A narrow landing (the runny drizzle, half == 0) takes the original two-column
+## lerp untouched. A lump takes a domed kernel over its footprint, normalised — so
+## it goes in rounded rather than as a flat slab, which is what gives the settle
+## something to hold the shape of.
+func _spread(state: SimState, u: float, half: float, units: float) -> void:
+	var cols := state.bowl.size()
+	var centre := clampf(u, 0.0, 1.0) * float(cols - 1)
+	var reach := half * float(cols - 1)
+	if reach < 0.5:
+		var i := clampi(int(floor(centre)), 0, cols - 1)
+		var f := centre - float(i)
+		if i + 1 < cols:
+			state.bowl[i] += units * (1.0 - f)
+			state.bowl[i + 1] += units * f
+		else:
+			state.bowl[i] += units
+		return
+
+	var lo := clampi(int(floor(centre - reach)), 0, cols - 1)
+	var hi := clampi(int(ceil(centre + reach)), 0, cols - 1)
+	var weights := PackedFloat32Array()
+	var total := 0.0
+	for i in range(lo, hi + 1):
+		var d := absf(float(i) - centre) / reach
+		var k := maxf(0.0, 1.0 - d * d)
+		weights.append(k)
+		total += k
+	if total <= 0.0:
+		state.bowl[clampi(int(round(centre)), 0, cols - 1)] += units
+		return
+	for j in weights.size():
+		state.bowl[lo + j] += units * weights[j] / total
 
 
 ## One relaxation sweep over the heightfield: neighbouring columns that differ by
@@ -351,8 +498,8 @@ func _slump(state: SimState, level: LevelDef) -> void:
 		return
 	# Graded by what's IN the bowl, never by what's at the exit — see
 	# SimState.bowl_thickness.
-	var repose := lerpf(level.repose_runny, level.repose_solid, state.bowl_thickness)
-	var relax := lerpf(level.slump_relax_runny, level.slump_relax_solid, state.bowl_thickness)
+	var repose: float = lerpf(level.repose_runny, level.repose_solid, state.bowl_thickness)
+	var relax: float = lerpf(level.slump_relax_runny, level.slump_relax_solid, state.bowl_thickness)
 	var flux := PackedFloat32Array()
 	flux.resize(cols)
 	for i in cols - 1:

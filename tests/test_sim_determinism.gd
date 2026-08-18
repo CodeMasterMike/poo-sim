@@ -49,6 +49,21 @@ func test_same_seed_same_intents_reproduce_exactly() -> void:
 	assert_eq(a.thickness, b.thickness, "thickness diverged")
 	assert_eq(a.bowl_thickness, b.bowl_thickness, "the bowl's consistency diverged")
 	assert_eq(a.bowl, b.bowl, "the settled pile diverged")
+	# Chunking pulls from clock.rng — lump sizes, where each one breaks off toward,
+	# and the roll the view draws its tumble from. Every one of those is a place a
+	# stray global randf() would make two boards disagree, so the lumps in the air
+	# are compared piece by piece rather than just counted.
+	assert_eq(a.chunk_pending, b.chunk_pending, "the forming lump diverged")
+	assert_eq(a.chunk_target, b.chunk_target, "the next lump's size diverged")
+	assert_eq(a.chunks.size(), b.chunks.size(), "a different number of lumps was in the air")
+	for i in a.chunks.size():
+		var x: BowlChunk = a.chunks[i]
+		var y: BowlChunk = b.chunks[i]
+		assert_eq(x.mass, y.mass, "lump %d changed mass" % i)
+		assert_eq(x.u, y.u, "lump %d landed somewhere else" % i)
+		assert_eq(x.half, y.half, "lump %d changed size" % i)
+		assert_eq(x.fall, y.fall, "lump %d was at a different height" % i)
+		assert_eq(x.grain, y.grain, "lump %d would be drawn differently" % i)
 	# The pattern must actually exercise the systems, or "identical" is hollow.
 	assert_gt(a.total_fill, 0.0, "run produced no Relief — pattern didn't exercise the sim")
 	assert_gt(a.bowl_peak(), 0.0, "nothing landed in the bowl")
