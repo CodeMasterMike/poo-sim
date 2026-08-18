@@ -1,5 +1,5 @@
 class_name ManualOverlay
-extends Control
+extends OverlayPanel
 ## The in-game FIELD MANUAL — a pause-and-read rules panel. Pure view: it holds no
 ## sim state and never touches the model, so any scene (this prototype, later the
 ## real Sit) can drop one in. It builds its whole node tree in code so there's no
@@ -14,91 +14,34 @@ extends Control
 ## is responsible for pausing the sim while `is_open()` — the manual doesn't know
 ## the sim exists.
 
-# --- Colours: aliased from the locked Palette (docs/specs/poo-sim-style-guide.html),
-#     so the manual reads as the same product as the sit. BBCode hex spans are
-#     derived from the same tokens in _manual_text(). ---
-const C_BG := Palette.SCRIM
-const C_PANEL := Palette.PANEL
-const C_BORDER := Palette.BORDER
-const C_TITLE := Palette.GOAL
-const C_TEXT := Palette.TEXT
-
-var _overlay: Control
 var _body: RichTextLabel
 
 
-func _ready() -> void:
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	mouse_filter = Control.MOUSE_FILTER_IGNORE  # never block gameplay while closed
-	_build_help_button()
-	_build_overlay()
-
-
-func is_open() -> bool:
-	return _overlay.visible
-
-
-func toggle() -> void:
-	_set_open(not _overlay.visible)
-
-
-func open() -> void:
-	_set_open(true)
-
-
-func close() -> void:
-	_set_open(false)
-
-
-func _set_open(value: bool) -> void:
-	_overlay.visible = value
-	if value:
-		_body.scroll_to_line(0)
+## Rewind to the top each time it opens. Reopening the manual halfway down the
+## hazard list, where you left it, reads as the panel having failed to refresh.
+func _on_opened() -> void:
+	_body.scroll_to_line(0)
 
 
 # ---------------------------------------------------------------- construction
 
-func _build_help_button() -> void:
-	var btn := Button.new()
-	btn.text = "?"
-	btn.focus_mode = Control.FOCUS_NONE  # must never steal Space/Enter from The Push
-	btn.add_theme_font_size_override("font_size", 40)
-	btn.custom_minimum_size = Vector2(72, 64)
-	btn.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	btn.offset_left = -92
-	btn.offset_right = -20
-	btn.offset_top = 16
-	btn.offset_bottom = 80
-	btn.pressed.connect(toggle)
-	add_child(btn)
+## A FULL-SCREEN panel, where the picker is a small centred card — the manual is a
+## wall of text and wants every pixel.
+func _build_contents(into: Control) -> void:
+	var help_btn: Button = add_toggle_button("?", 40, Control.PRESET_TOP_RIGHT, -92, 16, -20, 80)
+	help_btn.custom_minimum_size = Vector2(72, 64)
 
-
-func _build_overlay() -> void:
-	_overlay = Control.new()
-	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_overlay.mouse_filter = Control.MOUSE_FILTER_STOP  # eat stray taps behind the panel
-	_overlay.visible = false
-	add_child(_overlay)
-
-	var dim := ColorRect.new()
-	dim.color = C_BG
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dim.mouse_filter = Control.MOUSE_FILTER_STOP
-	_overlay.add_child(dim)
-
-	var margin := MarginContainer.new()
+	var margin: MarginContainer = padded(28)
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		margin.add_theme_constant_override(side, 28)
-	_overlay.add_child(margin)
+	into.add_child(margin)
 
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", _panel_style())
+	# Zero content margin: the padding container below owns the inset, and letting
+	# the style box add its own too would inset the body text twice.
+	panel.add_theme_stylebox_override("panel", panel_style(0))
 	margin.add_child(panel)
 
-	var pad := MarginContainer.new()
-	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		pad.add_theme_constant_override(side, 26)
+	var pad: MarginContainer = padded(26)
 	panel.add_child(pad)
 
 	var vbox := VBoxContainer.new()
@@ -130,31 +73,12 @@ func _build_overlay() -> void:
 func _build_header() -> HBoxContainer:
 	var header := HBoxContainer.new()
 
-	var title := Label.new()
-	title.text = "FIELD MANUAL · SEATED OPERATIONS"
-	title.add_theme_font_size_override("font_size", 40)
-	title.add_theme_color_override("font_color", C_TITLE)
+	var title: Label = heading("FIELD MANUAL · SEATED OPERATIONS", 40)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 
-	var close_btn := Button.new()
-	close_btn.text = "✕ CLOSE"
-	close_btn.focus_mode = Control.FOCUS_NONE
-	close_btn.add_theme_font_size_override("font_size", 30)
-	close_btn.pressed.connect(close)
-	header.add_child(close_btn)
-
+	header.add_child(close_button(30))
 	return header
-
-
-func _panel_style() -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = C_PANEL
-	sb.border_color = C_BORDER
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(10)
-	sb.set_content_margin_all(0)
-	return sb
 
 
 # ---------------------------------------------------------------- copy
@@ -219,13 +143,28 @@ func _manual_text() -> String:
 		_li("[b]Drag / Swipe[/b]", "Waft a cloud; re-center after a jolt."),
 		_li("[b]Tap[/b]", "Dismiss the phone."),
 		_li("[b]R[/b]", "Restart the sitting."),
-		_li("[b]1 / 2 / 3[/b]", "Switch venue: prototype · Church · Rave."),
+		_li("[b]%s[/b]" % _venue_keys(), "Switch venue: %s." % LevelCatalog.names_joined()),
 		_li("[b]H / Esc[/b]", "Open or close this manual."),
 		_li("[b]B[/b]", "Toggle the autopilot (demonstration only)."),
 		"\n",
 		"[c=%s]This manual is provisional and expands as new venues and hazards enter service. Sit with confidence.[/c]" % dim,
 	])
 	return s.replace("[c=", "[color=#").replace("[/c]", "[/color]")
+
+
+## The number keys the roster actually uses, as "1 / 2 / 3".
+##
+## The manual is the sixth and worst place a venue used to be spelled out: prose
+## drifts silently, and a controls table that names three venues on a build with
+## five is a documentation bug a player hits before anyone else does. Both halves of
+## that line now come from LevelCatalog, which is the only coupling this overlay has
+## to anything outside itself — a deliberate trade, because the alternative is copy
+## that is wrong by default.
+func _venue_keys() -> String:
+	var keys := PackedStringArray()
+	for slot in range(1, LevelCatalog.key_slots() + 1):
+		keys.append(str(slot))
+	return " / ".join(keys)
 
 
 func _h(title: String) -> String:
