@@ -77,25 +77,35 @@ static func inked(ci: CanvasItem, pts: PackedVector2Array, col: Color,
 	ci.draw_colored_polygon(pts, col)
 
 
+
 ## An ellipse, as a polygon. The toilet is ellipses all the way down — the seat,
 ## its opening, the shadow the pedestal casts on the floor — and Godot draws
 ## circles and rounded rects and nothing in between. Scaling a circle under a
 ## transform was the alternative, and it scales the ink with it, so a squashed
 ## seat comes back with a squashed outline.
+##
+## `rot` tilts it. Every ellipse on the fixture is axis-aligned and always will be
+## — but a lump of matter is not, and a field of lumps all leaning the same way is
+## the fastest possible way to make them read as one texture rather than as
+## separate things that landed separately.
 static func ellipse_pts(center: Vector2, rx: float, ry: float,
-		segments: int = 48) -> PackedVector2Array:
+		segments: int = 48, rot: float = 0.0) -> PackedVector2Array:
 	var pts := PackedVector2Array()
+	var cs := cos(rot)
+	var sn := sin(rot)
 	for i in segments:
 		var a := TAU * float(i) / float(segments)
-		pts.append(center + Vector2(cos(a) * rx, sin(a) * ry))
+		var p := Vector2(cos(a) * rx, sin(a) * ry)
+		pts.append(center + Vector2(p.x * cs - p.y * sn, p.x * sn + p.y * cs))
 	return pts
 
 
 static func ellipse(ci: CanvasItem, center: Vector2, rx: float, ry: float, col: Color,
-		ink: Color = TRANSPARENT, iw: float = 0.0) -> void:
+		ink: Color = TRANSPARENT, iw: float = 0.0, rot: float = 0.0,
+		segments: int = 48) -> void:
 	if rx <= 0.0 or ry <= 0.0:
 		return
-	inked(ci, ellipse_pts(center, rx, ry), col, ink, iw)
+	inked(ci, ellipse_pts(center, rx, ry, segments, rot), col, ink, iw)
 
 
 ## An ellipse as an outline rather than a fill — a hoop lying at some depth in
