@@ -104,6 +104,12 @@ const BODY_PROFILE := [
 ## steps, so the silhouette is resampled finer and roughened on top.
 const PILE_SUBDIV: int = 3
 
+## How many rows of lumps deep the pile is drawn. Row 0 is the crest and each row
+## below sits a lump deeper and darker; the count is worked out from how tall the
+## cavity is and clamped to this, because everything past it is buried behind the
+## rows in front of it and only costs draw calls.
+const PILE_LUMP_ROW_CAP: int = 14
+
 # --- Colours: aliased from the locked Palette (docs/specs/poo-sim-style-guide.html)
 #     so every screen draws from one source and can't drift. ---
 const BG := Palette.BG
@@ -418,6 +424,7 @@ func _draw_bowl(w: float, h: float) -> void:
 	_draw_streaks(cav)
 	_draw_pile(cav)
 	_draw_stream(h, cav)
+	_draw_chunks(h, cav)
 	_draw_throat_walls(w, h, cav, cera_sh, ink, iw)
 
 	# Splatter. The red zone costs Cleanliness, which the streaks above record
@@ -587,12 +594,24 @@ func _draw_pile(cav: Rect2) -> void:
 		quad[3] = Vector2(x0, minf(y0 + lift, cav.end.y))
 		_ci.draw_colored_polygon(quad, crust)
 
+	# The chunky surface, if what's in the bowl is firm enough to have one. Drawn
+	# ON TOP of the trapezoids rather than instead of them: the strips are the
+	# opaque mass (the heightfield, honestly), the lumps are what that mass is made
+	# of. Without the strips underneath, every gap between lumps would be a hole
+	# straight through to the porcelain.
+	var chunky := _pile_chunkiness()
+	if chunky > 0.02:
+		_draw_pile_lumps(cav, chunky, crust, body)
+
 	# Wet sheen. The one thing that separates "fresh" from "a brown shape", and
 	# the reason the product gets a third tone — a recorded exception to §5, see
 	# the style guide. Scattered along the crest, never on every sample: an even
 	# stripe of highlight reads as flaky pastry rather than something wet.
+	#
+	# It thins out as the surface goes chunky, because by then each lump is
+	# carrying its own highlight and the two together read as glazed.
 	for s in samples + 1:
-		if _lump(s, 409) <= 0.62:
+		if _lump(s, 409) <= lerpf(0.62, 0.94, chunky):
 			continue
 		if ys[s] >= cav.end.y - cav.size.y * 0.04:
 			continue
@@ -600,6 +619,138 @@ func _draw_pile(cav: Rect2) -> void:
 		var run := cav.size.x / float(samples) * (0.7 + 0.9 * _lump(s, 411))
 		VectorDraw.limb(_ci, p - Vector2(run, 0.0), p + Vector2(run * 0.6, 0.0),
 				maxf(1.0, lift * 0.22), Palette.MATTER_LIT)
+
+
+## How chunky the pile's surface reads, 0..1.
+##
+## Graded off `bowl_thickness`, never off `thickness` — the same rule the settle
+## and the drawn roughness already follow. A mound of lumps must not smooth over
+## because the exit went runny when you let go.
+func _pile_chunkiness() -> float:
+	if level == null or level.chunk_mass <= 0.0:
+		return 0.0
+	return smoothstep(level.chunk_thickness_floor, 0.95, state.bowl_thickness)
+
+
+## The lumps the pile is made of, laid along its crest.
+##
+## Two rows, drawn bottom up. Each lump is a dark disc with a lighter one on top of
+
+
+## One lump of matter, as a flat tilted oval.
+##
+## SKIPPED rather than clamped when it comes out sub-pixel, and that guard is not
+## defensive padding — it is a crash fix. A flattened ellipse is a ring of very
+## nearly collinear points, `draw_colored_polygon` fails to triangulate it, and the
+## error is fatal to the whole frame: the first version put a wet catchlight at
+## ry*0.17 on a small lump and the sit died mid-run in the debugger. Same failure
+## the pile's trapezoids were rewritten around; see the vector-pass notes.
+func _blob(at: Vector2, rx: float, ry: float, rot: float, col: Color,
+		segments: int = 14) -> void:
+	if rx < 0.7 or ry < 0.7:
+		return
+	_ci.draw_colored_polygon(VectorDraw.ellipse_pts(at, rx, ry, segments, rot), col)
+## it, and it is the DARK disc that does the real work: it is a hair wider than the
+## light one, so where two lumps meet you get a seam of shadow, and where they
+## don't quite meet you get a notch. That is the whole "space left between the
+## chunks" read, and it costs one extra polygon per lump.
+##
+## Everything about a lump — where along the crest, how wide, how tall, which way
+## it leans — is a pure function of (index, _seed), exactly like the surface noise
+## it sits on. Nothing here calls randf(): _draw() re-runs every frame, so a live
+## roll would make the pile boil.
+func _draw_pile_lumps(cav: Rect2, chunky: float, crust: Color, body: Color) -> void:
+	# Sized off the sim's own footprint, so a drawn lump is the width of a lump
+	# that actually landed rather than a number picked to look right.
+	var base: float = cav.size.x * level.chunk_spread
+	if base < 1.5:
+		return
+	var step := base * 1.05
+	var rise := base * 0.86
+	var count := int(cav.size.x / step) + 1
+	# Rows march DOWN from the crest until they run out of pile. Capped, because on
+	# a tall narrow cavity the count is otherwise unbounded — and by then everything
+	# below is buried behind the rows above it anyway.
+	var rows := mini(PILE_LUMP_ROW_CAP, int(cav.size.y / rise) + 1)
+	var shade := body.lerp(MATTER_DARK, 0.55)
+
+	# Row 0 is the crest; each row below is a lump deeper and takes more of the
+	# shadow tone. Filling the whole depth is what makes the mass read as BUILT of
+	# these things — with only the crest cobbled, the face below it was a plain
+	# brown wall and the pile looked like a poured slab with a lid on.
+	for row in rows:
+		for k in count:
+			var i := row * 997 + k
+			# Alternate rows are offset half a step, so the lumps pack like brick
+			# rather than lining up into columns.
+			var slot := float(k) + 0.5 + 0.5 * float(row & 1) + (_lump(i, 601) - 0.5) * 0.55
+			var u := slot * step / cav.size.x
+			if u < 0.0 or u > 1.0:
+				continue
+			var hgt: float = _sample_bowl(u)
+			var rx: float = base * (0.62 + 0.55 * _lump(i, 605)) * chunky
+			var ry: float = rx * (0.58 + 0.34 * _lump(i, 603))
+			# How far below the crest this lump's centre sits. A lump has to be
+			# buried to at least its own half-height, or it would float over a pile
+			# too shallow to be holding it.
+			var sink: float = ry * 1.15 + float(row) * rise
+			if hgt * cav.size.y < sink + 1.0:
+				continue
+			var at := Vector2(cav.position.x + cav.size.x * u,
+					cav.end.y - cav.size.y * hgt + sink)
+			if at.y - ry > cav.end.y:
+				continue     # below the bowl's floor
+			var rot: float = (_lump(i, 607) - 0.5) * 1.1
+			var lit: float = clampf(1.0 - 0.26 * float(row), 0.34, 1.0)
+			# The dark disc is the one doing the real work: a hair wider than the
+			# light one, so touching lumps get a seam of shadow and lumps that fall
+			# short of each other get a notch. That IS the gap between the chunks.
+			_blob(at, rx * 1.16, ry * 1.16, rot, shade)
+			_blob(at, rx, ry, rot, crust.lerp(shade, 1.0 - lit))
+			if row == 0 and _lump(i, 609) > 0.5:
+				# One wet catchlight per lump that gets one, lit from up and to the
+				# right like the sitter. Kept WIDE and shallow: a round one centred
+				# on the lump turned every cobble into a coin.
+				_blob(at + Vector2(rx * 0.22, -ry * 0.42), rx * 0.42, ry * 0.22, rot,
+						Palette.MATTER_LIT, 10)
+
+
+## Lumps still in the air, on their way down.
+##
+## Every one of these is a real BowlChunk the sim is carrying: its width is the
+## footprint it will deposit, and it is falling toward the column it will actually
+## land on. The only liberties taken here are render-side easing — it accelerates
+## downward and tumbles as it goes, neither of which feeds back.
+func _draw_chunks(h: float, cav: Rect2) -> void:
+	if state.chunks.is_empty():
+		return
+	var top := cav.position.y - h * 0.012
+	var shade := MATTER.lerp(MATTER_DARK, 0.5)
+	for chunk in state.chunks:
+		var f: float = clampf(chunk.fall, 0.0, 1.0)
+		# The sim drops it at a constant rate; gravity is applied here, where it is
+		# only a picture. Both ends still line up exactly with the sim's timing.
+		var drop: float = f * f * 0.7 + f * 0.3
+		var land: float = cav.end.y - cav.size.y * clampf(_sample_bowl(chunk.u), 0.0, 1.08)
+		# It drifts across to its landing column as it falls — this is the visible
+		# half of the scatter roll, and the reason a lump reads as coming away
+		# crooked rather than as being aimed.
+		var u: float = lerpf(chunk.from_u, chunk.u, drop)
+		# Drawn half again as wide as the footprint it will deposit. In the air it has
+		# nothing to be judged against, and at true size it read as a crumb rather than
+		# as the lump that is about to become one of the cobbles below it.
+		var rx: float = cav.size.x * chunk.half * 1.45
+		var ry: float = rx * 0.78
+		var rot: float = (chunk.grain - 0.5) * 9.0 * f
+		var at := Vector2(cav.position.x + cav.size.x * u, lerpf(top, land - ry, drop))
+		_blob(at, rx * 1.12, ry * 1.12, rot, shade, 16)
+		_blob(at, rx, ry, rot, MATTER, 16)
+		# A second, smaller blob welded to the first: one clean oval reads as a
+		# pebble, two overlapping read as something that broke off something.
+		var off := Vector2(cos(rot) * rx * 0.55, sin(rot) * rx * 0.55)
+		_blob(at + off, rx * 0.62, ry * 0.72, rot, MATTER)
+		_blob(at + Vector2(rx * 0.2, -ry * 0.38), rx * 0.32, ry * 0.24, rot,
+				Palette.MATTER_LIT, 10)
 
 
 ## Is anything actually coming out right now?
@@ -623,11 +774,14 @@ static func flow_volume(state: SimState, level: LevelDef) -> float:
 	return clampf(rate / maxf(0.1, level.fill_red), 0.0, 1.3)
 
 
-## What's actually coming out, falling to where the sim is depositing it.
+## What's actually coming out.
 ##
-## Thin, quick and near-straight when it's runny; a fat, slow, wavering rope when
-## it's solid. Width tracks the live fill rate, so the stream is a direct readout
-## of how fast you're filling — push harder and you can see it thicken.
+## Two halves of one idea, cross-faded by consistency. Runny is a rope: thin, quick
+## and near-straight, falling all the way to where the sim is depositing it, and
+## this is verbatim what the stream has always been. Solid does not pour at all —
+## it swells at the exit and breaks off, and the falling is done by _draw_chunks.
+## Width tracks the live fill rate either way, so the stream stays a direct readout
+## of how fast you're filling.
 func _draw_stream(h: float, cav: Rect2) -> void:
 	if not is_flowing(state, level):
 		return
@@ -642,29 +796,61 @@ func _draw_stream(h: float, cav: Rect2) -> void:
 	var land := cav.end.y - cav.size.y * clampf(_sample_bowl(u), 0.0, 1.08)
 	if land <= top:
 		return
-
-	# Solid wavers on the way down; runny falls straight and fast.
-	var wave := cav.size.x * 0.020 * thick
-	var speed := lerpf(11.0, 4.0, thick)
 	var wid := cav.size.x * (0.012 + 0.038 * vol) * (0.65 + 0.8 * thick)
-	var segs := 6
-	var prev := Vector2(x, top)
-	for s in range(1, segs + 1):
-		var f := float(s) / float(segs)
-		var pt := Vector2(x + sin(frame.t * speed + f * 5.5) * wave * f, lerpf(top, land, f))
-		# Tapers slightly toward the landing — it's stretching as it falls.
-		VectorDraw.limb(_ci, prev, pt, wid * (1.0 - 0.18 * f), MATTER)
-		prev = pt
-	VectorDraw.limb(_ci, Vector2(x, top), Vector2(x, top + (land - top) * 0.55), wid * 0.30,
-			Palette.MATTER_LIT)
 
-	# Where it lands. Runny spreads on impact; solid just plops.
-	var splat := wid * (1.6 - 0.7 * thick)
-	_ci.draw_circle(prev, splat, MATTER)
-	if thick < 0.5:
-		var spread := splat * (1.0 + 1.4 * (0.5 - thick))
-		VectorDraw.limb(_ci, prev - Vector2(spread, 0.0), prev + Vector2(spread, 0.0),
-				maxf(1.0, wid * 0.35), MATTER)
+	# How much of the output is leaving as lumps. Faded over a narrow band rather
+	# than read off PushSim.chunk_size directly: the sim's lump size STEPS at the
+	# threshold (see CHUNK_MIN_FRACTION), and a rope that vanished in one frame
+	# would read as a glitch.
+	var chunky := 0.0 if level.chunk_mass <= 0.0 else smoothstep(
+			level.chunk_thickness_floor, level.chunk_thickness_floor + 0.18, thick)
+
+	if chunky < 0.97:
+		# Solid wavers on the way down; runny falls straight and fast.
+		var wave := cav.size.x * 0.020 * thick
+		var speed := lerpf(11.0, 4.0, thick)
+		var rope := wid * (1.0 - chunky)
+		var segs := 6
+		var prev := Vector2(x, top)
+		for s in range(1, segs + 1):
+			var f := float(s) / float(segs)
+			var pt := Vector2(x + sin(frame.t * speed + f * 5.5) * wave * f, lerpf(top, land, f))
+			# Tapers slightly toward the landing — it's stretching as it falls.
+			VectorDraw.limb(_ci, prev, pt, rope * (1.0 - 0.18 * f), MATTER)
+			prev = pt
+		VectorDraw.limb(_ci, Vector2(x, top), Vector2(x, top + (land - top) * 0.55),
+				rope * 0.30, Palette.MATTER_LIT)
+
+		# Where it lands. Runny spreads on impact; solid just plops.
+		var splat := rope * (1.6 - 0.7 * thick)
+		_ci.draw_circle(prev, splat, MATTER)
+		if thick < 0.5:
+			var spread := splat * (1.0 + 1.4 * (0.5 - thick))
+			VectorDraw.limb(_ci, prev - Vector2(spread, 0.0), prev + Vector2(spread, 0.0),
+					maxf(1.0, rope * 0.35), MATTER)
+
+	if chunky > 0.03:
+		_draw_forming_lump(cav, x, top, chunky)
+
+
+## The piece still attached: it swells at the exit until it is heavy enough to go.
+##
+## Read straight off the sim's own accumulator, so the moment it disappears is the
+## exact moment a BowlChunk was appended. That timing is the whole gag — it hangs,
+## it hangs, and then it is gone and there is one falling.
+func _draw_forming_lump(cav: Rect2, x: float, top: float, chunky: float) -> void:
+	var ready: float = 0.0 if state.chunk_target <= 0.0 \
+			else clampf(state.chunk_pending / state.chunk_target, 0.0, 1.0)
+	var rx: float = cav.size.x * level.chunk_spread * chunky * (0.30 + 0.80 * ready)
+	if rx < 1.0:
+		return
+	var ry := rx * 0.85
+	var at := Vector2(x, top + ry * 0.45)
+	_blob(at, rx * 1.12, ry * 1.12, 0.0, MATTER.lerp(MATTER_DARK, 0.5), 16)
+	_blob(at, rx, ry, 0.0, MATTER, 16)
+	_blob(at + Vector2(rx * 0.22, -ry * 0.3), rx * 0.32, ry * 0.22, 0.0,
+			Palette.MATTER_LIT, 10)
+
 
 
 ## Deterministic 0..1 noise from a layer index and a salt, mixed with the match
