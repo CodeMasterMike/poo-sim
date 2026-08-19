@@ -17,6 +17,10 @@ extends RefCounted
 
 const TRANSPARENT := Color(0, 0, 0, 0)
 
+## The portrait the layout was drawn against — `window/size/viewport_*` in
+## project.godot. Only `type_size()` reads it.
+const DESIGN_ASPECT := 1920.0 / 1080.0
+
 
 ## A rounded rect. Deliberately allocates a FRESH StyleBoxFlat every call —
 ## draw commands can resolve a style box after _draw() returns, so reusing and
@@ -198,3 +202,20 @@ static func star(ci: CanvasItem, center: Vector2, radius: float, col: Color, fil
 static func text(ci: CanvasItem, font: Font, s: String, x: float, baseline: int,
 		region_w: float, fs: int, col: Color) -> void:
 	ci.draw_string(font, Vector2(x, baseline), s, HORIZONTAL_ALIGNMENT_CENTER, region_w, fs, col)
+
+
+## Type scales with WIDTH, and the height fraction is only how it's spelled.
+##
+## The project stretches `aspect="expand"`, so a screen taller than the 1080x1920
+## design keeps its width and is handed the extra as height. Every text region in
+## the Sit is width-derived (`w * 0.26`), so a font sized off `h` grows inside a
+## box that hasn't — on a 19.5:9 phone the type comes out ~22% too big, and the
+## labels tuned to just fit at design aspect clip first: "DEAD ZONE" rendered as
+## "DEAD ZO", and the Relief readout's consistency word as a bare "L".
+##
+## Callers still pass the height fraction they always did, so at 1080x1920 this
+## returns exactly the old pixel size — it only stops the type drifting against
+## the box on every other aspect. Vertical POSITIONS stay keyed to `h`: those
+## should stretch with the screen, and do.
+static func type_size(w: float, height_frac: float) -> int:
+	return int(w * DESIGN_ASPECT * height_frac)

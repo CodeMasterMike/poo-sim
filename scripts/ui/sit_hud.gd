@@ -59,7 +59,7 @@ func draw(sim_state: SimState, level_def: LevelDef, sim_clock: SimClock,
 	var font := ThemeDB.fallback_font
 
 	# The venue name lives in the LEVEL button (top-left); keep the title clean.
-	VectorDraw.text(_ci, font, "The Push", 0, int(h * 0.045), w, int(h * 0.026), TEXT)
+	VectorDraw.text(_ci, font, "The Push", 0, int(h * 0.045), w, VectorDraw.type_size(w, 0.026), TEXT)
 
 	_draw_meters_top(font, w, h)
 	_draw_quiet_status(font, w, h)
@@ -72,17 +72,17 @@ func draw(sim_state: SimState, level_def: LevelDef, sim_clock: SimClock,
 	# Footer readouts.
 	var fr := state.flow_ratio()
 	VectorDraw.text(_ci, font, "Flow %d%%   ·   %.1fs" % [int(round(fr * 100.0)), clock.elapsed],
-			0, int(h * 0.88), w, int(h * 0.022), TEXT_DIM)
-	VectorDraw.text(_ci, font, _controls_hint(), 0, int(h * 0.93), w, int(h * 0.018), TEXT_DIM)
+			0, int(h * 0.88), w, VectorDraw.type_size(w, 0.022), TEXT_DIM)
+	VectorDraw.text(_ci, font, _controls_hint(), 0, int(h * 0.93), w, VectorDraw.type_size(w, 0.018), TEXT_DIM)
 	if autoplay:
-		VectorDraw.text(_ci, font, "· AUTOPLAY ·", 0, int(h * 0.85), w, int(h * 0.020), GOAL)
+		VectorDraw.text(_ci, font, "· AUTOPLAY ·", 0, int(h * 0.85), w, VectorDraw.type_size(w, 0.020), GOAL)
 
 	# Splash flash tint.
 	if frame.splash_flash > 0.0:
 		var tint := RED
 		tint.a = 0.35 * (frame.splash_flash / 0.4)
 		_ci.draw_rect(Rect2(-40, -40, w + 80, h + 80), tint)
-		VectorDraw.text(_ci, font, "SPLASH!", 0, int(h * 0.44), w, int(h * 0.045), NEEDLE)
+		VectorDraw.text(_ci, font, "SPLASH!", 0, int(h * 0.44), w, VectorDraw.type_size(w, 0.045), NEEDLE)
 
 	# Knock resolution banner (brief).
 	if frame.knock_flash > 0.0:
@@ -91,7 +91,7 @@ func draw(sim_state: SimState, level_def: LevelDef, sim_clock: SimClock,
 		kt.a = 0.22 * (frame.knock_flash / 0.8)
 		_ci.draw_rect(Rect2(-40, -40, w + 80, h + 80), kt)
 		var ktxt := "STAYED QUIET" if frame.knock_flash_good else "THEY HEARD YOU!"
-		VectorDraw.text(_ci, font, ktxt, 0, int(h * 0.40), w, int(h * 0.040), kcol)
+		VectorDraw.text(_ci, font, ktxt, 0, int(h * 0.40), w, VectorDraw.type_size(w, 0.040), kcol)
 
 	_draw_overlay(font, w, h)
 
@@ -101,7 +101,7 @@ func _draw_meters_top(font: Font, w: float, h: float) -> void:
 	var mw := w * 0.88
 
 	# Composure — the master clock, full-width up top.
-	VectorDraw.text(_ci, font, "COMPOSURE", mx, int(h * 0.072), mw, int(h * 0.016), TEXT_DIM)
+	VectorDraw.text(_ci, font, "COMPOSURE", mx, int(h * 0.072), mw, VectorDraw.type_size(w, 0.016), TEXT_DIM)
 	var cy := h * 0.082
 	var ch := h * 0.024
 	_track(Rect2(mx, cy, mw, ch), state.composure / 100.0, _meter_color(state.composure))
@@ -110,8 +110,8 @@ func _draw_meters_top(font: Font, w: float, h: float) -> void:
 	var py := h * 0.125
 	var ph := h * 0.022
 	var pw := (mw - w * 0.03) * 0.5
-	_pill(font, "DISCRETION", state.discretion, mx, py, pw, ph, int(h * 0.015))
-	_pill(font, "CLEANLINESS", state.cleanliness, mx + pw + w * 0.03, py, pw, ph, int(h * 0.015))
+	_pill(font, "DISCRETION", state.discretion, mx, py, pw, ph, VectorDraw.type_size(w, 0.015))
+	_pill(font, "CLEANLINESS", state.cleanliness, mx + pw + w * 0.03, py, pw, ph, VectorDraw.type_size(w, 0.015))
 
 
 func _pill(font: Font, label: String, value: float, x: float, y: float, pw: float, ph: float, fs: int) -> void:
@@ -176,7 +176,7 @@ func _draw_quiet_status(font: Font, w: float, h: float) -> void:
 	var bar := col
 	bar.a = 0.92
 	VectorDraw.rrect(_ci, Rect2(w * 0.06, by, w * 0.88, bh), bar, int(bh * 0.34))
-	VectorDraw.text(_ci, font, label, 0, int(by + bh * 0.70), w, int(h * 0.020), Color(0.08, 0.07, 0.05))
+	VectorDraw.text(_ci, font, label, 0, int(by + bh * 0.70), w, VectorDraw.type_size(w, 0.020), Color(0.08, 0.07, 0.05))
 
 
 ## THE PUSH now hugs the left edge: the bowl and the man own the rest of the
@@ -257,7 +257,7 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 	if Hazards.relief_stalled(state):
 		VectorDraw.rrect(_ci, Rect2(gx - 8, gy - 8, gw + 16, gh + 16), Color(0.55, 0.78, 0.98, 0.16), 16)
 
-	VectorDraw.text(_ci, font, "THE PUSH", gx - 8, int(gy - h * 0.018), gw + 16, int(h * 0.016), TEXT_DIM)
+	VectorDraw.text(_ci, font, "THE PUSH", gx - 8, int(gy - h * 0.018), gw + 16, VectorDraw.type_size(w, 0.016), TEXT_DIM)
 	# The zone name is a claim about what is happening RIGHT NOW, so it goes quiet
 	# once the run is over — a frozen gauge still reading "FLOW" under the results
 	# scrim says the run is live when it isn't. The gauge itself stays, as a
@@ -272,7 +272,7 @@ func _draw_gauge(font: Font, w: float, h: float) -> void:
 	# The zone name gets a WIDER region than the gauge itself. At this column
 	# width "DEAD ZONE" clips to "DEAD Z"; the strip to the gauge's right is empty
 	# down here, so the label can centre on the gauge and overhang it.
-	VectorDraw.text(_ci, font, zname, 0, int(gbot + h * 0.04), w * 0.26, int(h * 0.024), zlabel_col)
+	VectorDraw.text(_ci, font, zname, 0, int(gbot + h * 0.04), w * 0.26, VectorDraw.type_size(w, 0.024), zlabel_col)
 
 
 ## Relief lost its abstract green tube — the bowl IS the meter now, so all that's
@@ -299,7 +299,7 @@ func _draw_relief_readout(font: Font, w: float, h: float) -> void:
 	if not word.is_empty():
 		line += "   ·   " + word
 	VectorDraw.text(_ci, font, line, cav.position.x - pad * 0.5, int(h * 0.727), cav.size.x + pad,
-			int(h * 0.024), TEXT)
+			VectorDraw.type_size(w, 0.024), TEXT)
 
 
 ## Which consistency the readout names.
@@ -355,7 +355,7 @@ func _draw_prompt(font: Font, w: float, h: float) -> void:
 	var by := h * 0.74
 	var bh := h * 0.05
 	VectorDraw.rrect(_ci, Rect2(w * 0.10, by, w * 0.80, bh), col, int(bh * 0.30))
-	VectorDraw.text(_ci, font, text, 0, int(by + bh * 0.66), w, int(h * 0.026), Color(0.1, 0.08, 0.05))
+	VectorDraw.text(_ci, font, text, 0, int(by + bh * 0.66), w, VectorDraw.type_size(w, 0.026), Color(0.1, 0.08, 0.05))
 
 
 ## A live hazard owns the prompt band. The Knock wins ties — it takes your input
@@ -428,16 +428,16 @@ func _draw_overlay(font: Font, w: float, h: float) -> void:
 		# the dimming. The text lands over him and still reads: he is a flat dark
 		# silhouette, which is exactly what text wants behind it.
 		_scene.draw_sitter(state, frame, w, h)
-		VectorDraw.text(_ci, font, "COULDN'T HOLD IT", 0, int(h * 0.40), w, int(h * 0.050), RED)
-		VectorDraw.text(_ci, font, "Composure ran out.", 0, int(h * 0.47), w, int(h * 0.026), TEXT)
+		VectorDraw.text(_ci, font, "COULDN'T HOLD IT", 0, int(h * 0.40), w, VectorDraw.type_size(w, 0.050), RED)
+		VectorDraw.text(_ci, font, "Composure ran out.", 0, int(h * 0.47), w, VectorDraw.type_size(w, 0.026), TEXT)
 		# Below his feet, not across his head — the slump is the picture here.
-		VectorDraw.text(_ci, font, "tap  ·  press R to retry", 0, int(h * 0.76), w, int(h * 0.024), TEXT_DIM)
+		VectorDraw.text(_ci, font, "tap  ·  press R to retry", 0, int(h * 0.76), w, VectorDraw.type_size(w, 0.024), TEXT_DIM)
 		return
 
 	# WON — score from the four meters.
 	var result := Scoring.evaluate(state, level)
 	_draw_stars(w * 0.5, h * 0.28, int(result.stars))
-	VectorDraw.text(_ci, font, _rank_title(result), 0, int(h * 0.36), w, int(h * 0.040), GOAL)
+	VectorDraw.text(_ci, font, _rank_title(result), 0, int(h * 0.36), w, VectorDraw.type_size(w, 0.040), GOAL)
 
 	var bd: Dictionary = result["breakdown"]
 	var y := 0.44
@@ -447,13 +447,13 @@ func _draw_overlay(font: Font, w: float, h: float) -> void:
 	_score_line(font, w, h, y, "Cleanliness", int(bd["cleanliness"])); y += 0.045
 	_score_line(font, w, h, y, "Flow", int(bd["flow"])); y += 0.045
 	_score_line(font, w, h, y, "Speed", int(bd["speed"])); y += 0.055
-	VectorDraw.text(_ci, font, "SCORE  %d" % int(result["base"]), 0, int(h * y), w, int(h * 0.034), TEXT)
-	VectorDraw.text(_ci, font, "tap  ·  press R to retry", 0, int(h * (y + 0.06)), w, int(h * 0.024), TEXT_DIM)
+	VectorDraw.text(_ci, font, "SCORE  %d" % int(result["base"]), 0, int(h * y), w, VectorDraw.type_size(w, 0.034), TEXT)
+	VectorDraw.text(_ci, font, "tap  ·  press R to retry", 0, int(h * (y + 0.06)), w, VectorDraw.type_size(w, 0.024), TEXT_DIM)
 
 
 func _score_line(font: Font, w: float, h: float, y: float, label: String, pts: int) -> void:
-	VectorDraw.text(_ci, font, "%s" % label, w * 0.16, int(h * y), w * 0.40, int(h * 0.024), TEXT_DIM)
-	VectorDraw.text(_ci, font, "%d" % pts, w * 0.56, int(h * y), w * 0.24, int(h * 0.024), TEXT)
+	VectorDraw.text(_ci, font, "%s" % label, w * 0.16, int(h * y), w * 0.40, VectorDraw.type_size(w, 0.024), TEXT_DIM)
+	VectorDraw.text(_ci, font, "%d" % pts, w * 0.56, int(h * y), w * 0.24, VectorDraw.type_size(w, 0.024), TEXT)
 
 
 func _draw_stars(cx: float, cy: float, stars: int) -> void:
