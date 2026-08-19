@@ -40,6 +40,9 @@ const TEXT := Palette.TEXT
 const TEXT_DIM := Palette.TEXT_DIM
 const GOAL := Palette.GOAL
 
+## What separates the items in the controls hint, on one line or two.
+const SEP := "  ·  "
+
 
 func _init(canvas: CanvasItem, scene: SitScene) -> void:
 	_ci = canvas
@@ -73,7 +76,7 @@ func draw(sim_state: SimState, level_def: LevelDef, sim_clock: SimClock,
 	var fr := state.flow_ratio()
 	VectorDraw.text(_ci, font, "Flow %d%%   ·   %.1fs" % [int(round(fr * 100.0)), clock.elapsed],
 			0, int(h * 0.88), w, VectorDraw.type_size(w, 0.022), TEXT_DIM)
-	VectorDraw.text(_ci, font, _controls_hint(), 0, int(h * 0.93), w, VectorDraw.type_size(w, 0.018), TEXT_DIM)
+	_draw_controls_hint(font, w, h)
 	if autoplay:
 		VectorDraw.text(_ci, font, "· AUTOPLAY ·", 0, int(h * 0.85), w, VectorDraw.type_size(w, 0.020), GOAL)
 
@@ -298,8 +301,16 @@ func _draw_relief_readout(font: Font, w: float, h: float) -> void:
 	var word := _readout_consistency()
 	if not word.is_empty():
 		line += "   ·   " + word
-	VectorDraw.text(_ci, font, line, cav.position.x - pad * 0.5, int(h * 0.727), cav.size.x + pad,
-			VectorDraw.type_size(w, 0.024), TEXT)
+	# The region has to hold the longest line this readout can PRODUCE, not the
+	# one on screen when it was tuned. A cavity-plus-padding box fits
+	# "RELIEF  9%" and loses the end of the longer consistency words — STEADY
+	# rendered as "STE". So measure the line and widen to it when it asks for
+	# more, keeping the box centred on the bowl either way.
+	var fs := VectorDraw.type_size(w, 0.024)
+	var need := font.get_string_size(line, HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x + w * 0.04
+	var region := maxf(cav.size.x + pad, need)
+	VectorDraw.text(_ci, font, line, cav.get_center().x - region * 0.5, int(h * 0.727), region,
+			fs, TEXT)
 
 
 ## Which consistency the readout names.
@@ -488,13 +499,30 @@ func _rank_title(result: Dictionary) -> String:
 ## registered — and a hint promising three keys on a screen offering five is worse
 ## than no hint, because a player trusts it. A single-venue roster drops the span
 ## entirely instead of advertising a key that selects what is already playing.
-func _controls_hint() -> String:
-	var parts := ["HOLD push", "release relax", "R restart"]
+func _controls_parts() -> Array[String]:
+	var parts: Array[String] = ["HOLD push", "release relax", "R restart"]
 	var slots := LevelCatalog.key_slots()
 	if slots > 1:
 		parts.append("1-%d level" % slots)
 	parts.append_array(["H manual", "B autoplay"])
-	return "  ·  ".join(parts)
+	return parts
+
+
+## The hint wraps rather than shrinks. Six items joined is wider than 1080 at any
+## size this footer can be read at, so it ran off both edges — the first and last
+## hints, HOLD and autoplay, were the ones lost. Splitting is measured rather than
+## hardcoded because the item count is level-dependent: a one-venue build drops
+## the "1-3 level" entry and fits on a single line, and should use it.
+func _draw_controls_hint(font: Font, w: float, h: float) -> void:
+	var fs := VectorDraw.type_size(w, 0.018)
+	var parts := _controls_parts()
+	var joined := SEP.join(parts)
+	if font.get_string_size(joined, HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x <= w * 0.96:
+		VectorDraw.text(_ci, font, joined, 0, int(h * 0.93), w, fs, TEXT_DIM)
+		return
+	var half := int(ceil(parts.size() / 2.0))
+	VectorDraw.text(_ci, font, SEP.join(parts.slice(0, half)), 0, int(h * 0.917), w, fs, TEXT_DIM)
+	VectorDraw.text(_ci, font, SEP.join(parts.slice(half)), 0, int(h * 0.952), w, fs, TEXT_DIM)
 
 
 func _meter_color(v: float) -> Color:
